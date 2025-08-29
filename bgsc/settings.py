@@ -47,7 +47,7 @@ ASGI_APPLICATION = "bgsc.asgi.application"
 
 # Channels layer: Redis on a separate instance (no Docker, no ElastiCache)
 # Replace with your Redis server's private IP/DNS. Keep port if default.
-REDIS_HOST = "172.31.32.192"   # private IP of your Redis EC2
+REDIS_HOST = "172.31.32.192"
 REDIS_PORT = 6379
 REDIS_PASSWORD = "wearebgsc"
 
@@ -55,12 +55,15 @@ CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [
-                (REDIS_HOST, REDIS_PORT, {"password": REDIS_PASSWORD, "db": 2})
-            ],
+            "hosts": [{
+                "address": (REDIS_HOST, REDIS_PORT),
+                "password": REDIS_PASSWORD,
+                "db": 2,
+            }],
         },
     }
 }
+
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
