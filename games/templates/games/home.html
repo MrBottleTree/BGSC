@@ -7,7 +7,7 @@
   {% if live_games %}
     {% for item in live_games %}
       {% with g=item.game %}
-      <div class="card">
+      <div class="card" id="game-{{ g.id }}" data-sport="{{ g.sport }}">
         <div class="spaced">
           <div><strong>{{ g.get_sport_display }}</strong> — {{ g.team1.name }} vs {{ g.team2.name }}</div>
           <span class="badge">{{ g.status }}</span>
@@ -77,4 +77,43 @@
   {% else %}
     <div class="card">No upcoming games scheduled.</div>
   {% endif %}
+  <script>
+    (function() {
+      var ws;
+      var retries = 0;
+      var maxRetries = 10;
+      function connect() {
+        try {
+          var proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+          ws = new WebSocket(proto + '://' + window.location.host + '/ws/live/');
+          ws.onopen = function() {
+            retries = 0;
+            console.debug('[live] connected');
+          };
+          ws.onmessage = function(ev) {
+            try {
+              var msg = JSON.parse(ev.data || '{}');
+              if (msg && (msg.kind === 'score_update' || msg.kind === 'undo' || msg.kind === 'status_change' || msg.kind === 'state_update')) {
+                window.location.reload();
+              }
+            } catch (e) {
+              window.location.reload();
+            }
+          };
+          ws.onclose = function() {
+            if (retries < maxRetries) {
+              var backoff = Math.min(1000 * Math.pow(2, retries++), 10000);
+              setTimeout(connect, backoff);
+            }
+          };
+          ws.onerror = function() {
+            try { ws.close(); } catch (e) {}
+          };
+        } catch (e) {
+          // swallow
+        }
+      }
+      connect();
+    })();
+  </script>
 {% endblock %}

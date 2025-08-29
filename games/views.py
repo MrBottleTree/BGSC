@@ -6,6 +6,8 @@ from django.views.decorators.http import require_POST
 from .models import *
 from django.utils import timezone
 from datetime import datetime
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 
 @login_required
 def logout_view(request):
@@ -119,6 +121,33 @@ def dashboard(request):
 def _get_or_create_stat(game: Game, player: Player):
     return PlayerStat.objects.get_or_create(game=game, player=player, defaults={"team": player.team})[0]
 
+
+def _broadcast_game_update(game: Game, kind: str = "score_update", extra: dict | None = None) -> None:
+    """Send a live update event to all connected websocket clients.
+
+    The consumer expects events with type 'push_update' and a 'data' payload.
+    """
+    layer = get_channel_layer()
+    if not layer:
+        return
+    data = {
+        "kind": kind,
+        "game_id": game.id,
+        "sport": game.sport,
+        "team1_score": game.team1_score,
+        "team2_score": game.team2_score,
+        "status": game.status,
+    }
+    if extra:
+        data.update(extra)
+    async_to_sync(layer.group_send)(
+        "live",
+        {
+            "type": "push_update",
+            "data": data,
+        },
+    )
+
 @login_required(login_url='/login/')
 def update_football(request, game_id: int):
     game = get_object_or_404(Football, pk=game_id)
@@ -137,6 +166,7 @@ def update_football(request, game_id: int):
             game.team2_score += 1
         game.save()
         ScoreEvent.objects.create(game=game, team=player.team, player=player, sport="FOOTBALL", points=1)
+        _broadcast_game_update(game)
         return redirect("update_football", game_id=game.id)
 
     return render(request, "games/update_football.html", {"game": game, "players": players})
@@ -162,6 +192,7 @@ def update_basketball(request, game_id: int):
             game.team2_score += points
         game.save()
         ScoreEvent.objects.create(game=game, team=player.team, player=player, sport="BASKETBALL", points=points)
+        _broadcast_game_update(game)
         return redirect("update_basketball", game_id=game.id)
 
     return render(request, "games/update_basketball.html", {"game": game, "players": players})
@@ -185,6 +216,7 @@ def update_cricket(request, game_id: int):
             if "bowler_id" in request.POST:
                 game.current_bowler = Player.objects.filter(pk=bowler_id).first() if bowler_id else None
             game.save()
+            _broadcast_game_update(game, kind="state_update")
         elif action == "runs":
             runs = int(request.POST.get("runs", 1))
             if game.current_batsman:
@@ -205,6 +237,7 @@ def update_cricket(request, game_id: int):
                     runs=runs,
                     batting_side=game.batting_side,
                 )
+                _broadcast_game_update(game)
         elif action == "wicket":
             if game.current_bowler:
                 st = _get_or_create_stat(game, game.current_bowler)
@@ -223,6 +256,7 @@ def update_cricket(request, game_id: int):
                     wicket=True,
                     batting_side=game.batting_side,
                 )
+                _broadcast_game_update(game)
         return redirect("update_cricket", game_id=game.id)
     return render(
         request,
@@ -334,6 +368,7 @@ def update_undo(request, game_id: int):
                     game.team2_deaths = max(0, game.team2_deaths - 1)
                 game.save()
         last.delete()
+        _broadcast_game_update(game, kind="undo")
     if game.sport == "FOOTBALL":
         return redirect("update_football", game_id=game.id)
     if game.sport == "BASKETBALL":
@@ -366,7 +401,7 @@ def set_game_status(request, game_id: int):
     if status in ("SCHEDULED", "LIVE", "FINISHED"):
         game.status = status
         game.save()
-    # Redirect back to dashboard
+        _broadcast_game_update(game, kind="status_change")
     return redirect("dashboard")
 
 
@@ -375,6 +410,5 @@ def set_game_status(request, game_id: int):
 def remove_player(request, team_id: int, player_id: int):
     team = get_object_or_404(Team, pk=team_id)
     player = get_object_or_404(Player, pk=player_id, team=team)
-    # Deleting the player removes their per-game stats; historical score events are kept with player set to null
     player.delete()
     return redirect("team_detail", team_id=team.id)
