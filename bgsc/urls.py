@@ -26,3 +26,7 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=getattr(settings, 'STATIC_ROOT', None))
+
+from django.http import HttpResponse
+def healthz(_): return HttpResponse("ok")
+urlpatterns += [path("healthz", healthz)]
