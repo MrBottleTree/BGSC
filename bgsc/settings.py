@@ -45,13 +45,33 @@ INSTALLED_APPS = [
 ]
 ASGI_APPLICATION = "bgsc.asgi.application"
 
-# Channels layer: Redis only, hard-coded to localhost:6379
+# Channels layer: Redis on a separate instance (no Docker, no ElastiCache)
+# Replace with your Redis server's private IP/DNS. Keep port if default.
+REDIS_HOST = "172.31.38.46"   # private IP of your Redis EC2
+REDIS_PORT = 6379
+REDIS_PASSWORD = "wearebgsc"
+
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {"hosts": [("127.0.0.1", 6379)]},
+        "CONFIG": {
+            "hosts": [
+                (REDIS_HOST, REDIS_PORT, {"password": REDIS_PASSWORD, "db": 2})
+            ],
+        },
     }
 }
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/1",
+        "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
+        "TIMEOUT": 300,
+    }
+}
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_CACHE_ALIAS = "default"
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
