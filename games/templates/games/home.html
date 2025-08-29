@@ -1,0 +1,80 @@
+{% extends 'games/base.html' %}
+{% block title %}Live & Upcoming | BGSC Leagues{% endblock %}
+{% block content %}
+  <h1>Live Games</h1>
+
+  <h2>Live Now</h2>
+  {% if live_games %}
+    {% for item in live_games %}
+      {% with g=item.game %}
+      <div class="card">
+        <div class="spaced">
+          <div><strong>{{ g.get_sport_display }}</strong> — {{ g.team1.name }} vs {{ g.team2.name }}</div>
+          <span class="badge">{{ g.status }}</span>
+        </div>
+        <div class="subtle">Kickoff: {{ g.scheduled_time }}</div>
+
+        {% if item.type == 'football' %}
+          <div class="row">
+            <div>
+              <h3>{{ g.team1.name }} — <span class="score">{{ item.team1_score }}</span></h3>
+              <div>Top Scorer: {% if item.team1_top %}{{ item.team1_top.player.name }} ({{ item.team1_top.points }}){% else %}-{% endif %}</div>
+              <div>Last Scorer: {% if item.team1_last %}{{ item.team1_last.player.name }} (total {{ item.team1_last_pts|default:0 }}){% else %}-{% endif %}</div>
+            </div>
+            <div>
+              <h3>{{ g.team2.name }} — <span class="score">{{ item.team2_score }}</span></h3>
+              <div>Top Scorer: {% if item.team2_top %}{{ item.team2_top.player.name }} ({{ item.team2_top.points }}){% else %}-{% endif %}</div>
+              <div>Last Scorer: {% if item.team2_last %}{{ item.team2_last.player.name }} (total {{ item.team2_last_pts|default:0 }}){% else %}-{% endif %}</div>
+            </div>
+          </div>
+        {% elif item.type == 'basketball' %}
+          <div class="row">
+            <div>
+              <h3>{{ g.team1.name }} — <span class="score">{{ item.team1_score }}</span></h3>
+              <div class="table-wrap"><table>
+                <thead><tr><th>Player</th><th>Pts</th></tr></thead>
+                <tbody>
+                  {% for ps in item.team1_players %}
+                  <tr><td>{{ ps.player.name }}</td><td>{{ ps.points }}</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table></div>
+            </div>
+            <div>
+              <h3>{{ g.team2.name }} — <span class="score">{{ item.team2_score }}</span></h3>
+              <div class="table-wrap"><table>
+                <thead><tr><th>Player</th><th>Pts</th></tr></thead>
+                <tbody>
+                  {% for ps in item.team2_players %}
+                  <tr><td>{{ ps.player.name }}</td><td>{{ ps.points }}</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table></div>
+            </div>
+          </div>
+        {% elif item.type == 'cricket' %}
+          <div>
+            <h3>Batting: {{ item.batting_team.name }} — <span class="score">{{ item.team_runs }}</span></h3>
+            <div>Current Batsman: {% if item.batsman %}{{ item.batsman.name }} ({{ item.batsman_runs }} runs){% else %}-{% endif %}</div>
+            <div>Current Bowler: {% if item.bowler %}{{ item.bowler.name }} ({{ item.bowler_wickets }} wickets){% else %}-{% endif %}</div>
+          </div>
+        {% endif %}
+      </div>
+      {% endwith %}
+    {% endfor %}
+  {% else %}
+    <div class="card">No games live right now.</div>
+  {% endif %}
+
+  <h2 class="section-title">Upcoming</h2>
+  {% if upcoming %}
+    {% for g in upcoming %}
+      <div class="card">
+        <div><strong>{{ g.get_sport_display }}</strong> — {{ g.team1.name }} vs {{ g.team2.name }}</div>
+        <small>Starts: {{ g.scheduled_time }}</small>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="card">No upcoming games scheduled.</div>
+  {% endif %}
+{% endblock %}

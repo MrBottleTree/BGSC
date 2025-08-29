@@ -1,0 +1,32 @@
+{% extends 'games/base.html' %}
+{% block title %}Team {{ team.name }} | BGSC Leagues{% endblock %}
+{% block content %}
+  <h1>Team: {{ team.name }}</h1>
+  <div class="card">
+    <h2 class="section-title">Members ({{ team.players.all|length }})</h2>
+    <div class="stack">
+      {% for p in team.players.all %}
+        <div class="spaced">
+          <div>{{ p.name }}</div>
+          <form method="post" action="{% url 'remove_player' team.id p.id %}" class="inline">{% csrf_token %}
+            <button class="btn btn-danger" type="submit" onclick="return confirm('Remove {{ p.name }} from {{ team.name }}?')">Remove</button>
+          </form>
+        </div>
+      {% empty %}
+        <div class="subtle">No players yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="section-title">Add Player</h3>
+    <form method="post">{% csrf_token %}
+      <label>Name</label>
+      <input type="text" name="name" required />
+      <div style="margin-top:12px">
+        <button class="btn btn-primary" type="submit">Add</button>
+        <a class="btn btn-outline" href="{% url 'teams' %}">Back</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

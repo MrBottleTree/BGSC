@@ -1,0 +1,43 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}BGSC Leagues{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'games/styles.css' %}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/">BGSC Leagues</a>
+      <nav class="nav">
+        {% if request.user.is_authenticated %}
+          <a class="nav-link" href="{% url 'dashboard' %}">Dashboard</a>
+          <a class="nav-link" href="{% url 'teams' %}">Teams</a>
+          <a class="nav-link" href="{% url 'logout' %}">Logout</a>
+        {% else %}
+          <a class="nav-link" href="{% url 'login' %}">Login</a>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    {% if messages %}
+      <div class="messages">
+        {% for m in messages %}<div class="msg">{{ m }}</div>{% endfor %}
+      </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <small>© {{ now|date:'Y' }} BGSC Leagues</small>
+    </div>
+  </footer>
+</body>
+</html>
+

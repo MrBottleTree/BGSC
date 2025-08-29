@@ -1,0 +1,80 @@
+{% extends 'games/base.html' %}
+{% block title %}Dashboard | BGSC Leagues{% endblock %}
+{% block content %}
+  <h1>Admin Dashboard</h1>
+  <div class="stack">
+    <div class="spaced">
+      <div class="stack">
+        <a class="btn btn-primary inline" href="{% url 'add_game' %}">+ Add Game</a>
+        <div class="spaced">
+          <a class="btn inline" href="{% url 'add_team' %}">+ Add Team</a>
+          <a class="btn inline" href="{% url 'add_player' %}">+ Add Player</a>
+          <a class="btn inline" href="{% url 'teams' %}">Manage Teams</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2>Live Games</h2>
+  {% if live_games %}
+    {% for g in live_games %}
+      <div class="card">
+        <div><strong>{{ g.get_sport_display }}</strong>: {{ g.team1.name }} vs {{ g.team2.name }}</div>
+        <div style="margin:6px 0">
+          {% if g.sport == 'FOOTBALL' %}
+            <a class="btn btn-accent" href="{% url 'update_football' g.id %}">Open Editor</a>
+          {% elif g.sport == 'BASKETBALL' %}
+            <a class="btn btn-accent" href="{% url 'update_basketball' g.id %}">Open Editor</a>
+          {% elif g.sport == 'CRICKET' %}
+            <a class="btn btn-accent" href="{% url 'update_cricket' g.id %}">Open Editor</a>
+          {% endif %}
+        </div>
+        <form method="post" action="{% url 'set_game_status' g.id %}">{% csrf_token %}
+          <div class="grid-actions">
+            <button class="btn btn-outline" name="status" value="SCHEDULED" type="submit">Mark Scheduled</button>
+            <button class="btn btn-primary" name="status" value="LIVE" type="submit">Mark Live</button>
+            <button class="btn btn-danger" name="status" value="FINISHED" type="submit">Mark Finished</button>
+          </div>
+        </form>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="card">No live games.</div>
+  {% endif %}
+
+  <h2>Scheduled</h2>
+  {% if scheduled %}
+    {% for g in scheduled %}
+      <div class="card">
+        <div><strong>{{ g.get_sport_display }}</strong>: {{ g.team1.name }} vs {{ g.team2.name }} - {{ g.scheduled_time }}</div>
+        <form method="post" action="{% url 'set_game_status' g.id %}">{% csrf_token %}
+          <div class="grid-actions">
+            <button class="btn btn-outline" name="status" value="SCHEDULED" type="submit">Mark Scheduled</button>
+            <button class="btn btn-primary" name="status" value="LIVE" type="submit">Mark Live</button>
+            <button class="btn btn-danger" name="status" value="FINISHED" type="submit">Mark Finished</button>
+          </div>
+        </form>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="card">No scheduled games.</div>
+  {% endif %}
+
+  <h2>Recently Finished</h2>
+  {% if finished %}
+    {% for g in finished %}
+      <div class="card">
+        <div class="spaced"><strong>{{ g.get_sport_display }}</strong>: {{ g.team1.name }} vs {{ g.team2.name }} - Final {{ g.team1_score }} - {{ g.team2_score }} <span class="badge">FINISHED</span></div>
+        <form method="post" action="{% url 'set_game_status' g.id %}">{% csrf_token %}
+          <div class="grid-actions">
+            <button class="btn btn-outline" name="status" value="SCHEDULED" type="submit">Mark Scheduled</button>
+            <button class="btn btn-primary" name="status" value="LIVE" type="submit">Mark Live</button>
+            <button class="btn btn-danger" name="status" value="FINISHED" type="submit">Mark Finished</button>
+          </div>
+        </form>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="card">No finished games yet.</div>
+  {% endif %}
+{% endblock %}

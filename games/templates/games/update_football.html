@@ -1,0 +1,49 @@
+{% extends 'games/base.html' %}
+{% block title %}Update Football | BGSC Leagues{% endblock %}
+{% block content %}
+  <h1>Football: {{ game.team1.name }} vs {{ game.team2.name }}</h1>
+  <div class="card">
+    <div class="spaced">
+      <div class="score">{{ game.team1.name }} {{ game.team1_score }} - {{ game.team2_score }} {{ game.team2.name }}</div>
+      <form method="post" action="{% url 'update_undo' game.id %}" class="inline">{% csrf_token %}
+        <button class="btn btn-outline" type="submit">Undo Last Action</button>
+      </form>
+    </div>
+  </div>
+  <div class="row">
+    <div class="card">
+      <h2>{{ game.team1.name }}</h2>
+      <form method="post" action="{% url 'update_undo' game.id %}" class="inline" style="margin-bottom:8px">{% csrf_token %}
+        <input type="hidden" name="team_id" value="{{ game.team1.id }}" />
+        <button class="btn btn-outline" type="submit">Undo Last {{ game.team1.name }}</button>
+      </form>
+      <div class="stack">
+        {% for p in players %}
+          {% if p.team_id == game.team1_id %}
+            <form method="post" class="inline">{% csrf_token %}
+              <input type="hidden" name="player_id" value="{{ p.id }}" />
+              <button class="btn btn-primary" type="submit">+1 {{ p.name }}</button>
+            </form>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    <div class="card">
+      <h2>{{ game.team2.name }}</h2>
+      <form method="post" action="{% url 'update_undo' game.id %}" class="inline" style="margin-bottom:8px">{% csrf_token %}
+        <input type="hidden" name="team_id" value="{{ game.team2.id }}" />
+        <button class="btn btn-outline" type="submit">Undo Last {{ game.team2.name }}</button>
+      </form>
+      <div class="stack">
+        {% for p in players %}
+          {% if p.team_id == game.team2_id %}
+            <form method="post" class="inline">{% csrf_token %}
+              <input type="hidden" name="player_id" value="{{ p.id }}" />
+              <button class="btn btn-primary" type="submit">+1 {{ p.name }}</button>
+            </form>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+{% endblock %}

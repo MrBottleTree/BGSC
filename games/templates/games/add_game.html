@@ -1,0 +1,35 @@
+{% extends 'games/base.html' %}
+{% block title %}Add Game | BGSC Leagues{% endblock %}
+{% block content %}
+  <h1>Add New Game</h1>
+  {% if error %}<div class="card" style="border-color:#b43"><strong>Error:</strong> {{ error }}</div>{% endif %}
+  <div class="card">
+    <form method="post">{% csrf_token %}
+      <label>Sport</label>
+      <div class="spaced">
+        <label><input type="radio" name="sport" value="FOOTBALL" checked> Football</label>
+        <label><input type="radio" name="sport" value="BASKETBALL"> Basketball</label>
+        <label><input type="radio" name="sport" value="CRICKET"> Cricket</label>
+      </div>
+      <label>Scheduled At</label>
+      <input type="datetime-local" name="scheduled_at" />
+      <small class="subtle">Leave blank to set to now.</small>
+      <label>Team 1</label>
+      <select name="team1_id">
+        {% for t in teams %}
+          <option value="{{ t.id }}">{{ t.name }}</option>
+        {% endfor %}
+      </select>
+      <label>Team 2</label>
+      <select name="team2_id">
+        {% for t in teams %}
+          <option value="{{ t.id }}">{{ t.name }}</option>
+        {% endfor %}
+      </select>
+      <div style="margin-top:12px">
+        <button class="btn btn-primary" type="submit">Create Game</button>
+        <a class="btn btn-outline" href="{% url 'dashboard' %}">Cancel</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

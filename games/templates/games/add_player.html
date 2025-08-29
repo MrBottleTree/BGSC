@@ -1,0 +1,22 @@
+{% extends 'games/base.html' %}
+{% block title %}Add Player | BGSC Leagues{% endblock %}
+{% block content %}
+  <h1>Add Player</h1>
+  {% if error %}<div class="card" style="border-color:#b43"><strong>Error:</strong> {{ error }}</div>{% endif %}
+  <div class="card">
+    <form method="post">{% csrf_token %}
+      <label>Name</label>
+      <input type="text" name="name" required />
+      <label>Team</label>
+      <select name="team_id" required>
+        {% for t in teams %}
+          <option value="{{ t.id }}">{{ t.name }}</option>
+        {% endfor %}
+      </select>
+      <div style="margin-top:12px">
+        <button class="btn btn-primary" type="submit">Create</button>
+        <a class="btn btn-outline" href="{% url 'dashboard' %}">Cancel</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

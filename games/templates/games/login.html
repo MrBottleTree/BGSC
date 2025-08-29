@@ -1,0 +1,11 @@
+{% extends 'games/base.html' %}
+{% block title %}Login | BGSC Leagues{% endblock %}
+{% block content %}
+  <h1>Login</h1>
+  <div class="card">
+    <form method="post">{% csrf_token %}
+      {{ form.as_p }}
+      <button class="btn btn-primary" type="submit">Login</button>
+    </form>
+  </div>
+{% endblock %}

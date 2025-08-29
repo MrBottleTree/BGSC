@@ -1,0 +1,107 @@
+{% extends 'games/base.html' %}
+{% block title %}Update Cricket | BGSC Leagues{% endblock %}
+{% block content %}
+  <h1>Cricket: {{ game.team1.name }} vs {{ game.team2.name }}</h1>
+  <div class="card">
+    <div class="spaced">
+      <div class="score">{{ game.team1.name }} {{ game.team1_score }} ({{ game.team1_deaths }} w) - {{ game.team2_score }} ({{ game.team2_deaths }} w) {{ game.team2.name }}</div>
+      <form method="post" action="{% url 'update_undo' game.id %}" class="inline">{% csrf_token %}
+        <button class="btn btn-outline" type="submit">Undo Last Action</button>
+      </form>
+    </div>
+  </div>
+
+  <h2 class="section-title">Match State</h2>
+  <div class="row">
+    <div class="card">
+      <h3>Batting Side</h3>
+      <form method="post" class="inline">{% csrf_token %}
+        <input type="hidden" name="action" value="set_state" />
+        <input type="hidden" name="batting_side" value="TEAM1" />
+        <button class="btn {% if game.batting_side == 'TEAM1' %}btn-primary{% else %}btn-outline{% endif %}" type="submit">{{ game.team1.name }}</button>
+      </form>
+      <form method="post" class="inline">{% csrf_token %}
+        <input type="hidden" name="action" value="set_state" />
+        <input type="hidden" name="batting_side" value="TEAM2" />
+        <button class="btn {% if game.batting_side == 'TEAM2' %}btn-primary{% else %}btn-outline{% endif %}" type="submit">{{ game.team2.name }}</button>
+      </form>
+    </div>
+    <div class="card">
+      <h3>Set Current Batsman</h3>
+      {% if game.batting_side == 'TEAM1' %}
+        <div>
+          <strong>{{ game.team1.name }}</strong><br/>
+          {% for p in players %}
+            {% if p.team_id == game.team1_id %}
+              <form method="post" class="inline" style="margin:3px">{% csrf_token %}
+                <input type="hidden" name="action" value="set_state" />
+                <input type="hidden" name="batsman_id" value="{{ p.id }}" />
+                <button class="btn btn-accent" type="submit">{{ p.name }}</button>
+              </form>
+            {% endif %}
+          {% endfor %}
+        </div>
+      {% else %}
+        <div>
+          <strong>{{ game.team2.name }}</strong><br/>
+          {% for p in players %}
+            {% if p.team_id == game.team2_id %}
+              <form method="post" class="inline" style="margin:3px">{% csrf_token %}
+                <input type="hidden" name="action" value="set_state" />
+                <input type="hidden" name="batsman_id" value="{{ p.id }}" />
+                <button class="btn btn-accent" type="submit">{{ p.name }}</button>
+              </form>
+            {% endif %}
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+    <div class="card">
+      <h3>Set Current Bowler</h3>
+      {% if game.batting_side == 'TEAM1' %}
+        <div>
+          <strong>{{ game.team2.name }}</strong><br/>
+          {% for p in players %}
+            {% if p.team_id == game.team2_id %}
+              <form method="post" class="inline" style="margin:3px">{% csrf_token %}
+                <input type="hidden" name="action" value="set_state" />
+                <input type="hidden" name="bowler_id" value="{{ p.id }}" />
+                <button class="btn btn-accent" type="submit">{{ p.name }}</button>
+              </form>
+            {% endif %}
+          {% endfor %}
+        </div>
+      {% else %}
+        <div>
+          <strong>{{ game.team1.name }}</strong><br/>
+          {% for p in players %}
+            {% if p.team_id == game.team1_id %}
+              <form method="post" class="inline" style="margin:3px">{% csrf_token %}
+                <input type="hidden" name="action" value="set_state" />
+                <input type="hidden" name="bowler_id" value="{{ p.id }}" />
+                <button class="btn btn-accent" type="submit">{{ p.name }}</button>
+              </form>
+            {% endif %}
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <h2 class="section-title">Record Runs</h2>
+  <div class="card">
+    {% for r in 1,2,3,4,6 %}
+      <form method="post" class="inline" style="margin:3px">{% csrf_token %}
+        <input type="hidden" name="action" value="runs" />
+        <input type="hidden" name="runs" value="{{ r }}" />
+        <button class="btn {% if r == 4 or r == 6 %}btn-primary{% else %}btn-outline{% endif %}" type="submit">+{{ r }}</button>
+      </form>
+    {% endfor %}
+  </div>
+
+  <h2 class="section-title">Record Wicket</h2>
+  <form method="post" class="inline">{% csrf_token %}
+    <input type="hidden" name="action" value="wicket" />
+    <button class="btn btn-danger" type="submit">Add Wicket</button>
+  </form>
+{% endblock %}
