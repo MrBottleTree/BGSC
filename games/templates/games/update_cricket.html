@@ -90,7 +90,7 @@
 
   <h2 class="section-title">Record Runs</h2>
   <div class="card">
-    {% for r in 1,2,3,4,6 %}
+    {% for r in nums %}
       <form method="post" class="inline" style="margin:3px">{% csrf_token %}
         <input type="hidden" name="action" value="runs" />
         <input type="hidden" name="runs" value="{{ r }}" />

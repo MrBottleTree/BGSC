@@ -166,7 +166,6 @@ def update_basketball(request, game_id: int):
 
     return render(request, "games/update_basketball.html", {"game": game, "players": players})
 
-
 @login_required(login_url='/login/')
 def update_cricket(request, game_id: int):
     game = get_object_or_404(Cricket, pk=game_id)
