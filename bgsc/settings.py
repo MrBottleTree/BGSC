@@ -28,6 +28,8 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["65.0.130.149", "bgsc.in"]
 
+CSRF_TRUSTED_ORIGINS = ["https://65.0.130.149", "https://bgsc.in"]
+
 
 # Application definition
 
