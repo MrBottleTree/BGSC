@@ -123,10 +123,6 @@ def _get_or_create_stat(game: Game, player: Player):
 
 
 def _broadcast_game_update(game: Game, kind: str = "score_update", extra: dict | None = None) -> None:
-    """Send a live update event to all connected websocket clients.
-
-    The consumer expects events with type 'push_update' and a 'data' payload.
-    """
     layer = get_channel_layer()
     if not layer:
         return

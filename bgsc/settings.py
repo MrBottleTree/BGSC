@@ -45,9 +45,7 @@ INSTALLED_APPS = [
 ]
 ASGI_APPLICATION = "bgsc.asgi.application"
 
-# Channels layer: Redis on a separate instance (no Docker, no ElastiCache)
-# Replace with your Redis server's private IP/DNS. Keep port if default.
-REDIS_HOST = "172.31.32.192"   # private IP of your Redis EC2
+REDIS_HOST = "172.31.32.192"
 REDIS_PORT = 6379
 REDIS_PASSWORD = "wearebgsc"
 
