@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-69b07es2c7_3vjvl-pesb#xr1t$*py$54l@x5lgadwx6f%k5+5
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["BGSC-alb-2004725893.ap-south-1.elb.amazonaws.com"]
+ALLOWED_HOSTS = ["bgsc.in"]
 
 CSRF_TRUSTED_ORIGINS = ["https://65.0.130.149", "https://bgsc.in"]
 
