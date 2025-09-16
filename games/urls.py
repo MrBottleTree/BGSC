@@ -31,4 +31,5 @@ urlpatterns = [
     path('dashboard/game-status/<int:game_id>/', views.set_game_status, name='set_game_status'),
 
     path('healthz/', lambda request: JsonResponse({"message": "OK"}, status=200), name='healthz'),
+    path('local-ip/', views.api_local_ip, name='api_local_ip'),
 ]

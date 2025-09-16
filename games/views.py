@@ -1,4 +1,6 @@
 from django.views.decorators.http import require_GET
+from django.http import JsonResponse
+import socket
 # API endpoint to get all matches
 @require_GET
 def api_get_matches(request):
@@ -1042,6 +1044,7 @@ def set_game_status(request, game_id: int):
                 basketball_game = Basketball.objects.get(pk=game.id)
                 if not basketball_game.actual_start_time:
                     from django.utils import timezone
+
                     basketball_game.actual_start_time = timezone.now()
                     basketball_game.save()
             except Basketball.DoesNotExist:
@@ -1489,3 +1492,12 @@ def api_match_detail(request, match_id: int):
             pass
     
     return JsonResponse(match_data)
+
+@require_GET
+def api_local_ip(request):
+    try:
+        hostname = socket.gethostname()
+        local_ip = socket.gethostbyname(hostname)
+    except Exception:
+        local_ip = None
+    return JsonResponse({'local_ip': local_ip})
