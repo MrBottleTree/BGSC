@@ -1,3 +1,4 @@
+from django.http import JsonResponse
 from django.urls import path
 from . import views
 from django.contrib.auth import views as auth_views
@@ -21,12 +22,13 @@ urlpatterns = [
     path('update/basketball/<int:game_id>/', views.update_basketball, name='update_basketball'),
     path('update/cricket/<int:game_id>/', views.update_cricket, name='update_cricket'),
     path('update/undo/<int:game_id>/', views.update_undo, name='update_undo'),
-    
-    # Basketball-specific endpoints
+
     path('basketball/stats/<int:game_id>/', views.basketball_game_stats, name='basketball_game_stats'),
     path('basketball/start/<int:game_id>/', views.start_basketball_game, name='start_basketball_game'),
     path('basketball/end/<int:game_id>/', views.end_basketball_game, name='end_basketball_game'),
     path('api/basketball/<int:game_id>/stats/', views.basketball_api_stats, name='basketball_api_stats'),
-    
+
     path('dashboard/game-status/<int:game_id>/', views.set_game_status, name='set_game_status'),
+
+    path('healthz/', lambda request: JsonResponse({"message": "OK"}, status=200), name='healthz'),
 ]
