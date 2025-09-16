@@ -1,0 +1,1077 @@
+{% extends 'games/base.html' %}
+{% block title %}Update Basketball | BGSC Leagues{% endblock %}
+{% block content %}
+<style>
+  .mobile-container {
+    max-width: 100vw;
+    overflow: hidden;
+  }
+  
+  .game-header {
+    background: #292929;
+    margin-top: 10px;
+    padding: 15px;
+    text-align: center;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+  
+  .score-display {
+    font-size: 1.6em;
+    font-weight: bold;
+    margin-bottom: 10px;
+  }
+  
+  .game-info {
+    font-size: 1.1em;
+    color: #ccc;
+  }
+  
+  .tabs-container {
+    display: flex;
+    overflow-x: auto;
+    background: #3b3b3b;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+  
+  .tab-btn {
+    flex: 1;
+    min-width: 100px;
+    padding: 15px 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: all 0.3s;
+    color: white;
+    white-space: nowrap;
+  }
+  
+  .tab-btn.active {
+    background: #007bff;
+    color: white;
+  }
+  
+  .tab-content {
+    display: none;
+    animation: fadeIn 0.3s;
+  }
+  
+  .tab-content.active {
+    display: block;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  .action-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  
+  .action-btn {
+    padding: 12px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: bold;
+  }
+  
+  .btn-undo { background: #dc3545; color: white; }
+  .btn-quarter { background: #28a745; color: white; }
+  
+  .teams-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+  
+  .team-section {
+    background: #313131;
+    padding: 15px;
+    border-radius: 8px;
+  }
+  
+  .team-title {
+    font-weight: bold;
+    margin-bottom: 15px;
+    text-align: center;
+    font-size: 1.1em;
+  }
+  
+  .player-list {
+    display: grid;
+    gap: 8px;
+  }
+  
+  .player-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px;
+    background: #404040;
+    border-radius: 6px;
+  }
+  
+  .player-info {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+  
+  .player-name {
+    font-size: 0.85em;
+    font-weight: bold;
+  }
+  
+  .player-stats {
+    font-size: 0.75em;
+    color: #ccc;
+  }
+  
+  .quick-actions {
+    display: flex;
+    gap: 3px;
+  }
+  
+  .shot-btn {
+    padding: 6px 8px;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.75em;
+    cursor: pointer;
+    min-width: 30px;
+  }
+  
+  .btn-ft { background: #6c757d; color: white; }
+  .btn-2pt { background: #28a745; color: white; }
+  .btn-3pt { background: #ffc107; color: black; }
+  
+  .foul-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  
+  .foul-team {
+    background: #2a2a2a;
+    padding: 15px;
+    border-radius: 6px;
+    text-align: center;
+  }
+  
+  .foul-title {
+    font-weight: bold;
+    margin-bottom: 10px;
+  }
+  
+  .foul-count {
+    font-size: 1.2em;
+    color: #ff6b6b;
+    margin-bottom: 10px;
+  }
+  
+  .foul-buttons {
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+  }
+  
+  .action-form {
+    background: #313131;
+    padding: 20px;
+    border-radius: 8px;
+  }
+  
+  .form-group {
+    margin-bottom: 15px;
+  }
+  
+  .form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 0.95em;
+    font-weight: 500;
+  }
+  
+  .form-control {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #555;
+    border-radius: 4px;
+    font-size: 1em;
+    background: #404040;
+    color: white;
+  }
+  
+  .btn-primary {
+    width: 100%;
+    padding: 15px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 1em;
+    cursor: pointer;
+    margin-bottom: 10px;
+  }
+  
+  .sub-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-top: 20px;
+  }
+  
+  .sub-section {
+    background: #404040;
+    border-radius: 6px;
+    padding: 15px;
+  }
+  
+  .sub-title {
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 15px;
+  }
+  
+  .sub-player-item {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    margin-bottom: 5px;
+    background: #505050;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  
+  .sub-player-item:hover {
+    background: #555;
+  }
+  
+  .sub-player-item.selected {
+    background: #007bff;
+  }
+  
+  .sub-player-item input[type="radio"] {
+    margin-right: 10px;
+  }
+  
+  .hidden { display: none !important; }
+</style>
+
+<div class="mobile-container">
+  <!-- Game Header -->
+  <div class="game-header">
+    <div class="score-display">
+      {{ game.team1.name }} {{ game.team1_score }} - {{ game.team2_score }} {{ game.team2.name }}
+    </div>
+    <div class="game-info">
+      Fouls: {{ game.team1.name }} ({{ game_state.team1_fouls }}) | {{ game.team2.name }} ({{ game_state.team2_fouls }})
+    </div>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <div class="tabs-container">
+    <button class="tab-btn active" onclick="showTab('quick')">Quick Actions</button>
+    <button class="tab-btn" onclick="showTab('active')">Set Active</button>
+    <button class="tab-btn" onclick="showTab('sub')">Substitutions</button>
+  </div>
+
+  <!-- Quick Actions Tab -->
+  <div id="quick-tab" class="tab-content active">
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+      <form method="post" style="display: inline;">{% csrf_token %}
+        <input type="hidden" name="action" value="undo_last_shot">
+        <button type="submit" class="action-btn btn-undo">Undo Shot</button>
+      </form>
+      <form method="post" style="display: inline;">{% csrf_token %}
+        <input type="hidden" name="action" value="undo_last_foul">
+        <button type="submit" class="action-btn btn-undo">Undo Foul</button>
+      </form>
+      <form method="post" style="display: inline;">{% csrf_token %}
+        <input type="hidden" name="action" value="undo_last_substitution">
+        <button type="submit" class="action-btn btn-undo">Undo Sub</button>
+      </form>
+      <form method="post" style="display: inline;">{% csrf_token %}
+        <input type="hidden" name="action" value="next_quarter">
+        <button type="submit" class="action-btn btn-quarter">Next Quarter</button>
+      </form>
+    </div>
+    
+    <!-- Active Players (5 each team) -->
+    <div class="teams-container">
+      <div class="team-section">
+        <div class="team-title">{{ game.team1.name }} (Active)</div>
+        <div class="player-list">
+          {% for player in team1_active_players %}
+          <div class="player-row">
+            <div class="player-info">
+              <div class="player-name">{{ player.name }}</div>
+              <div class="player-stats">
+                {% with player.id|stringformat:"s" as pid %}
+                  {% for stat in team1_stats %}
+                    {% if stat.player.id|stringformat:"s" == pid %}
+                      Points: {{ stat.points }}
+                    {% endif %}
+                  {% endfor %}
+                {% endwith %}
+              </div>
+            </div>
+            <div class="quick-actions">
+              <form method="post" style="display: inline;">{% csrf_token %}
+                <input type="hidden" name="action" value="shot">
+                <input type="hidden" name="player_id" value="{{ player.id }}">
+                <input type="hidden" name="shot_type" value="FT">
+                <input type="hidden" name="result" value="MADE">
+                <button type="submit" class="shot-btn btn-ft">FT</button>
+              </form>
+              <form method="post" style="display: inline;">{% csrf_token %}
+                <input type="hidden" name="action" value="shot">
+                <input type="hidden" name="player_id" value="{{ player.id }}">
+                <input type="hidden" name="shot_type" value="2PT">
+                <input type="hidden" name="result" value="MADE">
+                <button type="submit" class="shot-btn btn-2pt">2PT</button>
+              </form>
+              <form method="post" style="display: inline;">{% csrf_token %}
+                <input type="hidden" name="action" value="shot">
+                <input type="hidden" name="player_id" value="{{ player.id }}">
+                <input type="hidden" name="shot_type" value="3PT">
+                <input type="hidden" name="result" value="MADE">
+                <button type="submit" class="shot-btn btn-3pt">3PT</button>
+              </form>
+            </div>
+          </div>
+          {% empty %}
+          <div style="text-align: center; color: #ccc; padding: 20px;">
+            No active players set. Use "Set Active" tab to select 5 players.
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="team-section">
+        <div class="team-title">{{ game.team2.name }} (Active)</div>
+        <div class="player-list">
+          {% for player in team2_active_players %}
+          <div class="player-row">
+            <div class="player-info">
+              <div class="player-name">{{ player.name }}</div>
+              <div class="player-stats">
+                {% with player.id|stringformat:"s" as pid %}
+                  {% for stat in team2_stats %}
+                    {% if stat.player.id|stringformat:"s" == pid %}
+                      Points: {{ stat.points }}
+                    {% endif %}
+                  {% endfor %}
+                {% endwith %}
+              </div>
+            </div>
+            <div class="quick-actions">
+              <form method="post" style="display: inline;">{% csrf_token %}
+                <input type="hidden" name="action" value="shot">
+                <input type="hidden" name="player_id" value="{{ player.id }}">
+                <input type="hidden" name="shot_type" value="FT">
+                <input type="hidden" name="result" value="MADE">
+                <button type="submit" class="shot-btn btn-ft">FT</button>
+              </form>
+              <form method="post" style="display: inline;">{% csrf_token %}
+                <input type="hidden" name="action" value="shot">
+                <input type="hidden" name="player_id" value="{{ player.id }}">
+                <input type="hidden" name="shot_type" value="2PT">
+                <input type="hidden" name="result" value="MADE">
+                <button type="submit" class="shot-btn btn-2pt">2PT</button>
+              </form>
+              <form method="post" style="display: inline;">{% csrf_token %}
+                <input type="hidden" name="action" value="shot">
+                <input type="hidden" name="player_id" value="{{ player.id }}">
+                <input type="hidden" name="shot_type" value="3PT">
+                <input type="hidden" name="result" value="MADE">
+                <button type="submit" class="shot-btn btn-3pt">3PT</button>
+              </form>
+            </div>
+          </div>
+          {% empty %}
+          <div style="text-align: center; color: #ccc; padding: 20px;">
+            No active players set. Use "Set Active" tab to select 5 players.
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    
+    <!-- Foul Section -->
+    <div class="foul-section">
+      <div class="foul-team">
+        <div class="foul-title">{{ game.team1.name }} Fouls</div>
+        <div class="foul-count">{{ game_state.team1_fouls }}</div>
+        <div class="foul-buttons">
+          <form method="post" style="display: inline;">{% csrf_token %}
+            <input type="hidden" name="action" value="foul">
+            <input type="hidden" name="team_id" value="{{ game.team1.id }}">
+            <input type="hidden" name="points_scored" value="1">
+            <button type="submit" class="shot-btn btn-ft">FT</button>
+          </form>
+          <form method="post" style="display: inline;">{% csrf_token %}
+            <input type="hidden" name="action" value="foul">
+            <input type="hidden" name="team_id" value="{{ game.team1.id }}">
+            <input type="hidden" name="points_scored" value="2">
+            <button type="submit" class="shot-btn btn-2pt">2PT</button>
+          </form>
+          <form method="post" style="display: inline;">{% csrf_token %}
+            <input type="hidden" name="action" value="foul">
+            <input type="hidden" name="team_id" value="{{ game.team1.id }}">
+            <input type="hidden" name="points_scored" value="3">
+            <button type="submit" class="shot-btn btn-3pt">3PT</button>
+          </form>
+        </div>
+      </div>
+      <div class="foul-team">
+        <div class="foul-title">{{ game.team2.name }} Fouls</div>
+        <div class="foul-count">{{ game_state.team2_fouls }}</div>
+        <div class="foul-buttons">
+          <form method="post" style="display: inline;">{% csrf_token %}
+            <input type="hidden" name="action" value="foul">
+            <input type="hidden" name="team_id" value="{{ game.team2.id }}">
+            <input type="hidden" name="points_scored" value="1">
+            <button type="submit" class="shot-btn btn-ft">FT</button>
+          </form>
+          <form method="post" style="display: inline;">{% csrf_token %}
+            <input type="hidden" name="action" value="foul">
+            <input type="hidden" name="team_id" value="{{ game.team2.id }}">
+            <input type="hidden" name="points_scored" value="2">
+            <button type="submit" class="shot-btn btn-2pt">2PT</button>
+          </form>
+          <form method="post" style="display: inline;">{% csrf_token %}
+            <input type="hidden" name="action" value="foul">
+            <input type="hidden" name="team_id" value="{{ game.team2.id }}">
+            <input type="hidden" name="points_scored" value="3">
+            <button type="submit" class="shot-btn btn-3pt">3PT</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Set Active Players Tab -->
+  <div id="active-tab" class="tab-content">
+    <div class="action-form">
+      <h3>Set Active Players (5 per team)</h3>
+      <form method="post">{% csrf_token %}
+        <input type="hidden" name="action" value="set_active_players">
+        
+        <div class="teams-container">
+          <div>
+            <h4>{{ game.team1.name }}</h4>
+            {% for player in game.team1.players.all %}
+            <div class="form-group">
+              <label>
+                <input type="checkbox" name="team1_players" value="{{ player.id }}" 
+                       {% if player in team1_active_players %}checked{% endif %}>
+                {{ player.name }}
+              </label>
+            </div>
+            {% endfor %}
+          </div>
+          
+          <div>
+            <h4>{{ game.team2.name }}</h4>
+            {% for player in game.team2.players.all %}
+            <div class="form-group">
+              <label>
+                <input type="checkbox" name="team2_players" value="{{ player.id }}"
+                       {% if player in team2_active_players %}checked{% endif %}>
+                {{ player.name }}
+              </label>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        
+        <button type="submit" class="btn-primary">Set Active Players</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Substitution Tab -->
+  <div id="sub-tab" class="tab-content">
+    <div class="action-form">
+      <h3>Player Substitution</h3>
+      
+      <form method="post">{% csrf_token %}
+        <input type="hidden" name="action" value="substitution">
+        
+        <div class="form-group">
+          <label>Select Team:</label>
+          <select name="team_id" class="form-control" required>
+            <option value="">Select Team</option>
+            <option value="{{ game.team1.id }}">{{ game.team1.name }}</option>
+            <option value="{{ game.team2.id }}">{{ game.team2.name }}</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label>Player Out (Active):</label>
+          <select name="player_out_id" class="form-control" required>
+            <option value="">Select player to substitute out</option>
+            {% for player in team1_active_players %}
+            <option value="{{ player.id }}" data-team="{{ game.team1.id }}">{{ player.name }} ({{ game.team1.name }})</option>
+            {% endfor %}
+            {% for player in team2_active_players %}
+            <option value="{{ player.id }}" data-team="{{ game.team2.id }}">{{ player.name }} ({{ game.team2.name }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label>Player In (Bench):</label>
+          <select name="player_in_id" class="form-control" required>
+            <option value="">Select player to substitute in</option>
+            {% for player in game.team1.players.all %}
+              {% if player not in team1_active_players %}
+              <option value="{{ player.id }}" data-team="{{ game.team1.id }}">{{ player.name }} ({{ game.team1.name }})</option>
+              {% endif %}
+            {% endfor %}
+            {% for player in game.team2.players.all %}
+              {% if player not in team2_active_players %}
+              <option value="{{ player.id }}" data-team="{{ game.team2.id }}">{{ player.name }} ({{ game.team2.name }})</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+        </div>
+        
+        <button type="submit" class="btn-primary">Make Substitution</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function showTab(tabName) {
+  // Hide all tab contents
+  const tabContents = document.querySelectorAll('.tab-content');
+  tabContents.forEach(content => content.classList.remove('active'));
+  
+  // Remove active class from all tab buttons
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  tabBtns.forEach(btn => btn.classList.remove('active'));
+  
+  // Show selected tab content
+  document.getElementById(tabName + '-tab').classList.add('active');
+  
+  // Add active class to clicked tab button
+  event.target.classList.add('active');
+}
+</script>
+
+{% endblock %}
+<style>
+  .mobile-container {
+    max-width: 100vw;
+    overflow: hidden;
+  }
+  
+  .game-header {
+    background: #292929;
+    margin-top: 10px;
+    padding: 15px;
+    text-align: center;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+  
+  .score-display {
+    font-size: 1.6em;
+    font-weight: bold;
+    margin-bottom: 10px;
+  }
+  
+  .game-info {
+    font-size: 1.1em;
+    color: #ccc;
+  }
+  
+  .tabs-container {
+    display: flex;
+    overflow-x: auto;
+    background: #3b3b3b;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+  
+  .tab-btn {
+    flex: 1;
+    min-width: 100px;
+    padding: 15px 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: all 0.3s;
+    color: white;
+    white-space: nowrap;
+  }
+  
+  .tab-btn.active {
+    background: #007bff;
+    color: white;
+  }
+  
+  .tab-content {
+    display: none;
+    animation: fadeIn 0.3s;
+  }
+  
+  .tab-content.active {
+    display: block;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  .team-section {
+    background: #313131;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+  }
+  
+  .team-title {
+    font-weight: bold;
+    margin-bottom: 15px;
+    text-align: center;
+    font-size: 1.1em;
+  }
+  
+  .player-list {
+    display: grid;
+    gap: 10px;
+  }
+  
+  .player-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px;
+    background: #404040;
+    border-radius: 6px;
+  }
+  
+  .player-info {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+  
+  .player-name {
+    font-size: 0.9em;
+    font-weight: bold;
+  }
+  
+  .player-stats {
+    font-size: 0.8em;
+    color: #ccc;
+  }
+  
+  .quick-actions {
+    display: flex;
+    gap: 5px;
+  }
+  
+  .shot-btn {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.8em;
+    cursor: pointer;
+    min-width: 40px;
+  }
+  
+  .btn-ft { background: #6c757d; color: white; }
+  .btn-2pt { background: #28a745; color: white; }
+  .btn-3pt { background: #ffc107; color: black; }
+  
+  .action-form {
+    background: #313131;
+    padding: 20px;
+    border-radius: 8px;
+  }
+  
+  .form-group {
+    margin-bottom: 15px;
+  }
+  
+  .form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 0.95em;
+    font-weight: 500;
+  }
+  
+  .form-control {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #555;
+    border-radius: 4px;
+    font-size: 1em;
+    background: #404040;
+    color: white;
+  }
+  
+  .btn-primary {
+    width: 100%;
+    padding: 15px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 1em;
+    cursor: pointer;
+    margin-bottom: 10px;
+  }
+  
+  .btn-outline {
+    width: 100%;
+    padding: 12px;
+    background: transparent;
+    color: #007bff;
+    border: 1px solid #007bff;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-bottom: 10px;
+  }
+  
+  .foul-section {
+    background: #2a2a2a;
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .foul-team {
+    font-weight: bold;
+  }
+  
+  .foul-count {
+    font-size: 1.2em;
+    color: #ff6b6b;
+  }
+  
+  .sub-section {
+    background: #404040;
+    border-radius: 6px;
+    margin-bottom: 15px;
+  }
+  
+  .sub-player-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    border-bottom: 1px solid #555;
+  }
+  
+  .sub-player-item:last-child {
+    border-bottom: none;
+  }
+  
+  .sub-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85em;
+  }
+  
+  .btn-sub { background: #dc3545; color: white; }
+  
+  .hidden { display: none !important; }
+</style>
+
+<div class="mobile-container">
+  <!-- Game Header -->
+  <div class="game-header">
+    <div class="score-display">
+      {{ game.team1.name }} {{ game.team1_score }} - {{ game.team2_score }} {{ game.team2.name }}
+    </div>
+    <div class="game-info">
+      Fouls: {{ game.team1.name }} ({{ game_state.team1_fouls }}) | {{ game.team2.name }} ({{ game_state.team2_fouls }})
+    </div>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <div class="tabs-container">
+    <button class="tab-btn active" onclick="showTab('quick')">Quick Actions</button>
+    <button class="tab-btn" onclick="showTab('shot')">Record Shot</button>
+    <button class="tab-btn" onclick="showTab('foul')">Record Foul</button>
+    <button class="tab-btn" onclick="showTab('sub')">Substitutions</button>
+  </div>
+
+  <!-- Quick Actions Tab -->
+  <div id="quick-tab" class="tab-content active">
+    <form method="post" action="{% url 'update_undo' game.id %}">{% csrf_token %}
+      <button class="btn-outline" type="submit">Undo Last Action</button>
+    </form>
+    
+    <!-- Team Fouls Display -->
+    <div class="foul-section">
+      <div class="foul-team">{{ game.team1.name }} Fouls</div>
+      <div class="foul-count">{{ game_state.team1_fouls }}</div>
+    </div>
+    <div class="foul-section">
+      <div class="foul-team">{{ game.team2.name }} Fouls</div>
+      <div class="foul-count">{{ game_state.team2_fouls }}</div>
+    </div>
+    
+    <div class="team-section">
+      <div class="team-title">{{ game.team1.name }} Players</div>
+      <div class="player-list">
+        {% for player in game.team1.players.all %}
+        <div class="player-row">
+          <div class="player-info">
+            <div class="player-name">{{ player.name }}</div>
+            <div class="player-stats">
+              {% with player.id|stringformat:"s" as pid %}
+                {% for stat in team1_stats %}
+                  {% if stat.player.id|stringformat:"s" == pid %}
+                    Points: {{ stat.points }}
+                  {% endif %}
+                {% endfor %}
+              {% endwith %}
+            </div>
+          </div>
+          <div class="quick-actions">
+            <form method="post" style="display: inline;">{% csrf_token %}
+              <input type="hidden" name="action" value="shot">
+              <input type="hidden" name="player_id" value="{{ player.id }}">
+              <input type="hidden" name="shot_type" value="FT">
+              <input type="hidden" name="result" value="MADE">
+              <button type="submit" class="shot-btn btn-ft">FT</button>
+            </form>
+            <form method="post" style="display: inline;">{% csrf_token %}
+              <input type="hidden" name="action" value="shot">
+              <input type="hidden" name="player_id" value="{{ player.id }}">
+              <input type="hidden" name="shot_type" value="2PT">
+              <input type="hidden" name="result" value="MADE">
+              <button type="submit" class="shot-btn btn-2pt">2PT</button>
+            </form>
+            <form method="post" style="display: inline;">{% csrf_token %}
+              <input type="hidden" name="action" value="shot">
+              <input type="hidden" name="player_id" value="{{ player.id }}">
+              <input type="hidden" name="shot_type" value="3PT">
+              <input type="hidden" name="result" value="MADE">
+              <button type="submit" class="shot-btn btn-3pt">3PT</button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="team-section">
+      <div class="team-title">{{ game.team2.name }} Players</div>
+      <div class="player-list">
+        {% for player in game.team2.players.all %}
+        <div class="player-row">
+          <div class="player-info">
+            <div class="player-name">{{ player.name }}</div>
+            <div class="player-stats">
+              {% with player.id|stringformat:"s" as pid %}
+                {% for stat in team2_stats %}
+                  {% if stat.player.id|stringformat:"s" == pid %}
+                    Points: {{ stat.points }}
+                  {% endif %}
+                {% endfor %}
+              {% endwith %}
+            </div>
+          </div>
+          <div class="quick-actions">
+            <form method="post" style="display: inline;">{% csrf_token %}
+              <input type="hidden" name="action" value="shot">
+              <input type="hidden" name="player_id" value="{{ player.id }}">
+              <input type="hidden" name="shot_type" value="FT">
+              <input type="hidden" name="result" value="MADE">
+              <button type="submit" class="shot-btn btn-ft">FT</button>
+            </form>
+            <form method="post" style="display: inline;">{% csrf_token %}
+              <input type="hidden" name="action" value="shot">
+              <input type="hidden" name="player_id" value="{{ player.id }}">
+              <input type="hidden" name="shot_type" value="2PT">
+              <input type="hidden" name="result" value="MADE">
+              <button type="submit" class="shot-btn btn-2pt">2PT</button>
+            </form>
+            <form method="post" style="display: inline;">{% csrf_token %}
+              <input type="hidden" name="action" value="shot">
+              <input type="hidden" name="player_id" value="{{ player.id }}">
+              <input type="hidden" name="shot_type" value="3PT">
+              <input type="hidden" name="result" value="MADE">
+              <button type="submit" class="shot-btn btn-3pt">3PT</button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Shot Tab -->
+  <div id="shot-tab" class="tab-content">
+    <div class="action-form">
+      <h3>Record Shot</h3>
+      <form method="post">{% csrf_token %}
+        <input type="hidden" name="action" value="shot">
+        
+        <div class="form-group">
+          <label for="player_id">Player:</label>
+          <select name="player_id" id="player_id" class="form-control" required>
+            <option value="">Select Player</option>
+            {% for player in players %}
+            <option value="{{ player.id }}">{{ player.team.name }} - {{ player.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="shot_type">Shot Type:</label>
+          <select name="shot_type" id="shot_type" class="form-control">
+            <option value="2PT">2-Pointer</option>
+            <option value="3PT">3-Pointer</option>
+            <option value="FT">Free Throw</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="result">Result:</label>
+          <select name="result" id="result" class="form-control">
+            <option value="MADE">Made</option>
+            <option value="MISSED">Missed</option>
+          </select>
+        </div>
+        
+        <button type="submit" class="btn-primary">Record Shot</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Foul Tab -->
+  <div id="foul-tab" class="tab-content">
+    <div class="action-form">
+      <h3>Record Foul</h3>
+      <form method="post">{% csrf_token %}
+        <input type="hidden" name="action" value="foul">
+        
+        <div class="form-group">
+          <label for="team_id">Team (that committed foul):</label>
+          <select name="team_id" id="team_id" class="form-control" required>
+            <option value="">Select Team</option>
+            <option value="{{ game.team1.id }}">{{ game.team1.name }}</option>
+            <option value="{{ game.team2.id }}">{{ game.team2.name }}</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="points_scored">Points Scored (from free throws):</label>
+          <input type="number" name="points_scored" id="points_scored" class="form-control" value="0" min="0" max="10">
+        </div>
+        
+        <button type="submit" class="btn-primary">Record Foul</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Substitution Tab -->
+  <div id="sub-tab" class="tab-content">
+    <div class="action-form">
+      <h3>Substitutions</h3>
+      
+      <div class="team-section">
+        <div class="team-title">{{ game.team1.name }}</div>
+        <div class="sub-section">
+          {% for player in game.team1.players.all %}
+          <div class="sub-player-item">
+            <span>{{ player.name }}</span>
+            <div>
+              <form method="post" style="display: inline;">{% csrf_token %}
+                <input type="hidden" name="action" value="substitution">
+                <input type="hidden" name="team_id" value="{{ game.team1.id }}">
+                <input type="hidden" name="player_out_id" value="{{ player.id }}">
+                <select name="player_in_id" style="margin-right: 5px; background: #404040; color: white; border: 1px solid #555;">
+                  <option value="">Sub In...</option>
+                  {% for sub_player in game.team1.players.all %}
+                    {% if sub_player.id != player.id %}
+                    <option value="{{ sub_player.id }}">{{ sub_player.name }}</option>
+                    {% endif %}
+                  {% endfor %}
+                </select>
+                <button type="submit" class="sub-btn btn-sub">Sub Out</button>
+              </form>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      
+      <div class="team-section">
+        <div class="team-title">{{ game.team2.name }}</div>
+        <div class="sub-section">
+          {% for player in game.team2.players.all %}
+          <div class="sub-player-item">
+            <span>{{ player.name }}</span>
+            <div>
+              <form method="post" style="display: inline;">{% csrf_token %}
+                <input type="hidden" name="action" value="substitution">
+                <input type="hidden" name="team_id" value="{{ game.team2.id }}">
+                <input type="hidden" name="player_out_id" value="{{ player.id }}">
+                <select name="player_in_id" style="margin-right: 5px; background: #404040; color: white; border: 1px solid #555;">
+                  <option value="">Sub In...</option>
+                  {% for sub_player in game.team2.players.all %}
+                    {% if sub_player.id != player.id %}
+                    <option value="{{ sub_player.id }}">{{ sub_player.name }}</option>
+                    {% endif %}
+                  {% endfor %}
+                </select>
+                <button type="submit" class="sub-btn btn-sub">Sub Out</button>
+              </form>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function showTab(tabName) {
+  // Hide all tab contents
+  const tabContents = document.querySelectorAll('.tab-content');
+  tabContents.forEach(content => content.classList.remove('active'));
+  
+  // Remove active class from all tab buttons
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  tabBtns.forEach(btn => btn.classList.remove('active'));
+  
+  // Show selected tab content
+  document.getElementById(tabName + '-tab').classList.add('active');
+  
+  // Add active class to clicked tab button
+  event.target.classList.add('active');
+}
+</script>
+
+{% endblock %}

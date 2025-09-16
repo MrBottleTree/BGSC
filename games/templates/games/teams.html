@@ -1,19 +1,44 @@
-{% extends 'games/base.html' %}
-{% block title %}Teams | BGSC Leagues{% endblock %}
-{% block content %}
-  <h1>Teams</h1>
-  <div class="spaced"><a class="btn btn-primary" href="{% url 'add_team' %}">+ Add Team</a></div>
-  {% for t in teams %}
-    <div class="card">
-      <div class="spaced">
-        <strong>{{ t.name }}</strong>
-        <span class="badge">{{ t.players.all|length }} players</span>
-      </div>
-      <div style="margin-top:8px">
-        <a class="btn btn-accent" href="{% url 'team_detail' t.id %}">View Members</a>
-      </div>
-    </div>
-  {% empty %}
-    <div class="card">No teams yet.</div>
-  {% endfor %}
-{% endblock %}
+{% extends 'games/base.html' %} {% block title %}Teams | BGSC Leagues{% endblock %} {% block content %}
+<h1>Teams</h1>
+<div class="spaced">
+  <a class="btn btn-primary" href="{% url 'add_team' %}">+ Add Team</a>
+</div>
+{% for t in teams %}
+<div class="card">
+  <div class="spaced">
+    <strong>{{ t.name }}</strong>
+    <span class="badge">{{ t.players.all|length }} players</span>
+  </div>
+  {% if t.leader %}
+  <div style="margin-top: 4px; color: #666;">
+    <strong>Captain:</strong> {{ t.leader.name }}
+  </div>
+  {% else %}
+  <div style="margin-top: 4px; color: #999;">
+    <em>No captain assigned</em>
+  </div>
+  {% endif %}
+  <div style="margin-top: 8px">
+    <a class="btn btn-accent" href="{% url 'team_detail' t.id %}"
+      >View Members</a
+    >
+  </div>
+  <form
+    method="post"
+    action="{% url 'remove_team' t.id %}"
+    class="inline"
+    style="margin-top: 8px"
+  >
+    {% csrf_token %}
+    <button
+      class="btn btn-danger"
+      type="submit"
+      onclick="return confirm('Are you sure you want to delete the team {{ t.name }}? This action cannot be undone.')"
+    >
+      Delete Team
+    </button>
+  </form>
+</div>
+{% empty %}
+<div class="card">No teams yet.</div>
+{% endfor %} {% endblock %}

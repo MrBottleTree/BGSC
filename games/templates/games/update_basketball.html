@@ -1,55 +1,778 @@
 {% extends 'games/base.html' %}
 {% block title %}Update Basketball | BGSC Leagues{% endblock %}
 {% block content %}
-  <h1>Basketball: {{ game.team1.name }} vs {{ game.team2.name }}</h1>
-  <div class="card">
-    <div class="spaced">
-      <div class="score">{{ game.team1.name }} {{ game.team1_score }} - {{ game.team2_score }} {{ game.team2.name }}</div>
-      <form method="post" action="{% url 'update_undo' game.id %}" class="inline">{% csrf_token %}
-        <button class="btn btn-outline" type="submit">Undo Last Action</button>
+<style>
+  .mobile-container {
+    max-width: 100vw;
+    overflow: hidden;
+  }
+  
+  .game-header {
+    background: #292929;
+    margin-top: 10px;
+    padding: 15px;
+    text-align: center;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+  
+  .score-display {
+    font-size: 1.6em;
+    font-weight: bold;
+    margin-bottom: 10px;
+  }
+  
+  .game-info {
+    font-size: 1.1em;
+    color: #ccc;
+  }
+  
+  .tabs-container {
+    display: flex;
+    overflow-x: auto;
+    background: #3b3b3b;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+  
+  .tab-btn {
+    flex: 1;
+    min-width: 100px;
+    padding: 15px 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: all 0.3s;
+    color: white;
+    white-space: nowrap;
+  }
+  
+  .tab-btn.active {
+    background: #007bff;
+    color: white;
+  }
+  
+  .tab-content {
+    display: none;
+    animation: fadeIn 0.3s;
+  }
+  
+  .tab-content.active {
+    display: block;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  .action-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  
+  .action-btn {
+    padding: 12px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: bold;
+  }
+  
+  .btn-undo { background: #dc3545; color: white; }
+  .btn-quarter { background: #28a745; color: white; }
+  
+  .teams-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+  
+  .team-section {
+    background: #313131;
+    padding: 15px;
+    border-radius: 8px;
+  }
+  
+  .team-title {
+    font-weight: bold;
+    margin-bottom: 15px;
+    text-align: center;
+    font-size: 1.1em;
+  }
+  
+  .player-list {
+    display: grid;
+    gap: 8px;
+  }
+  
+  .player-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px;
+    background: #404040;
+    border-radius: 6px;
+  }
+  
+  .player-info {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+  
+  .player-name {
+    font-size: 0.85em;
+    font-weight: bold;
+  }
+  
+  .player-stats {
+    font-size: 0.75em;
+    color: #ccc;
+  }
+  
+  .quick-actions {
+    display: flex;
+    gap: 3px;
+  }
+  
+  .shot-btn {
+    padding: 6px 8px;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.75em;
+    cursor: pointer;
+    min-width: 30px;
+  }
+  
+  .btn-ft { background: #6c757d; color: white; }
+  .btn-2pt { background: #28a745; color: white; }
+  .btn-3pt { background: #ffc107; color: black; }
+  
+  .foul-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  
+  .foul-team {
+    background: #2a2a2a;
+    padding: 15px;
+    border-radius: 6px;
+    text-align: center;
+  }
+  
+  .foul-title {
+    font-weight: bold;
+    margin-bottom: 10px;
+  }
+  
+  .foul-count {
+    font-size: 1.2em;
+    color: #ff6b6b;
+    margin-bottom: 10px;
+  }
+  
+  .foul-buttons {
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+  }
+  
+  .action-form {
+    background: #313131;
+    padding: 20px;
+    border-radius: 8px;
+  }
+  
+  .form-group {
+    margin-bottom: 15px;
+  }
+  
+  .form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 0.95em;
+    font-weight: 500;
+  }
+  
+  .form-control {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #555;
+    border-radius: 4px;
+    font-size: 1em;
+    background: #404040;
+    color: white;
+  }
+  
+  .btn-primary {
+    width: 100%;
+    padding: 15px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 1em;
+    cursor: pointer;
+    margin-bottom: 10px;
+  }
+  
+  .btn-primary:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+  }
+  
+  .player-count {
+    font-size: 0.9em;
+    color: #ffc107;
+    font-weight: normal;
+  }
+  
+  .team-select-btn {
+    margin-bottom: 0 !important;
+  }
+  
+  .team-select-btn.selected {
+    background: #28a745 !important;
+  }
+  
+  .player-item-selectable {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px;
+    background: #404040;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .player-item-selectable:hover {
+    background: #505050;
+  }
+  
+  .player-item-selectable.selected {
+    background: #007bff;
+    color: white;
+  }
+  
+  .player-item-selectable input[type="radio"] {
+    display: none;
+  }
+  
+  .hidden { display: none !important; }
+</style>
+
+<div class="mobile-container">
+  <!-- Messages -->
+  {% if messages %}
+  <div class="messages" style="margin-bottom: 20px;">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }}" style="padding: 10px; margin-bottom: 10px; border-radius: 6px; {% if message.tags == 'success' %}background: #d4edda; color: #155724; border: 1px solid #c3e6cb;{% elif message.tags == 'error' %}background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb;{% endif %}">
+      {{ message }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Game Header -->
+  <div class="game-header">
+    <div class="score-display">
+      {{ game.team1.name }} {{ game.team1_score }} - {{ game.team2_score }} {{ game.team2.name }}
+    </div>
+    <div class="quarter-display" style="font-size: 1.2em; margin: 5px 0; color: #ffd700;">
+      Quarter {{ game.current_quarter }}
+    </div>
+    <div class="game-info">
+      Points from Fouls: {{ game.team1.name }} ({{ game_state.team1_foul_points }}) | {{ game.team2.name }} ({{ game_state.team2_foul_points }})
+    </div>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <div class="tabs-container">
+    <button class="tab-btn active" onclick="showTab('quick')">Quick Actions</button>
+    <button class="tab-btn" onclick="showTab('active')">Set Active</button>
+    <button class="tab-btn" onclick="showTab('sub')">Substitutions</button>
+  </div>
+
+  <!-- Quick Actions Tab -->
+  <div id="quick-tab" class="tab-content active">
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+      <form method="post" style="display: inline;">{% csrf_token %}
+        <input type="hidden" name="action" value="undo_last_shot">
+        <button type="submit" class="action-btn btn-undo">Undo Shot</button>
+      </form>
+      <form method="post" style="display: inline;">{% csrf_token %}
+        <input type="hidden" name="action" value="undo_last_foul">
+        <button type="submit" class="action-btn btn-undo">Undo Foul</button>
+      </form>
+      <form method="post" style="display: inline;">{% csrf_token %}
+        <input type="hidden" name="action" value="undo_last_substitution">
+        <button type="submit" class="action-btn btn-undo">Undo Sub</button>
+      </form>
+      <form method="post" style="display: inline;">{% csrf_token %}
+        <input type="hidden" name="action" value="next_quarter">
+        <button type="submit" class="action-btn btn-quarter">Next Quarter</button>
+      </form>
+      <form method="post" style="display: inline;">{% csrf_token %}
+        <input type="hidden" name="action" value="end_game">
+        <button type="submit" class="action-btn btn-quarter" style="background: #dc3545;">End Game</button>
+      </form>
+    </div>
+    
+    <!-- Active Players (5 each team) -->
+    <div class="teams-container">
+      <div class="team-section">
+        <div class="team-title">{{ game.team1.name }} (Active)</div>
+        <div class="player-list">
+          {% for player in team1_active_players %}
+          <div class="player-row">
+            <div class="player-info">
+              <div class="player-name">{{ player.name }}</div>
+              <div class="player-stats">
+                {% with player.id|stringformat:"s" as pid %}
+                  {% for stat in team1_stats %}
+                    {% if stat.player.id|stringformat:"s" == pid %}
+                      Points: {{ stat.points }}
+                    {% endif %}
+                  {% endfor %}
+                {% endwith %}
+              </div>
+            </div>
+            <div class="quick-actions">
+              <form method="post" style="display: inline;">{% csrf_token %}
+                <input type="hidden" name="action" value="shot">
+                <input type="hidden" name="player_id" value="{{ player.id }}">
+                <input type="hidden" name="shot_type" value="FT">
+                <input type="hidden" name="result" value="MADE">
+                <button type="submit" class="shot-btn btn-ft">FT</button>
+              </form>
+              <form method="post" style="display: inline;">{% csrf_token %}
+                <input type="hidden" name="action" value="shot">
+                <input type="hidden" name="player_id" value="{{ player.id }}">
+                <input type="hidden" name="shot_type" value="2PT">
+                <input type="hidden" name="result" value="MADE">
+                <button type="submit" class="shot-btn btn-2pt">2PT</button>
+              </form>
+              <form method="post" style="display: inline;">{% csrf_token %}
+                <input type="hidden" name="action" value="shot">
+                <input type="hidden" name="player_id" value="{{ player.id }}">
+                <input type="hidden" name="shot_type" value="3PT">
+                <input type="hidden" name="result" value="MADE">
+                <button type="submit" class="shot-btn btn-3pt">3PT</button>
+              </form>
+            </div>
+          </div>
+          {% empty %}
+          <div style="text-align: center; color: #ccc; padding: 20px;">
+            No active players set. Use "Set Active" tab to select 5 players.
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="team-section">
+        <div class="team-title">{{ game.team2.name }} (Active)</div>
+        <div class="player-list">
+          {% for player in team2_active_players %}
+          <div class="player-row">
+            <div class="player-info">
+              <div class="player-name">{{ player.name }}</div>
+              <div class="player-stats">
+                {% with player.id|stringformat:"s" as pid %}
+                  {% for stat in team2_stats %}
+                    {% if stat.player.id|stringformat:"s" == pid %}
+                      Points: {{ stat.points }}
+                    {% endif %}
+                  {% endfor %}
+                {% endwith %}
+              </div>
+            </div>
+            <div class="quick-actions">
+              <form method="post" style="display: inline;">{% csrf_token %}
+                <input type="hidden" name="action" value="shot">
+                <input type="hidden" name="player_id" value="{{ player.id }}">
+                <input type="hidden" name="shot_type" value="FT">
+                <input type="hidden" name="result" value="MADE">
+                <button type="submit" class="shot-btn btn-ft">FT</button>
+              </form>
+              <form method="post" style="display: inline;">{% csrf_token %}
+                <input type="hidden" name="action" value="shot">
+                <input type="hidden" name="player_id" value="{{ player.id }}">
+                <input type="hidden" name="shot_type" value="2PT">
+                <input type="hidden" name="result" value="MADE">
+                <button type="submit" class="shot-btn btn-2pt">2PT</button>
+              </form>
+              <form method="post" style="display: inline;">{% csrf_token %}
+                <input type="hidden" name="action" value="shot">
+                <input type="hidden" name="player_id" value="{{ player.id }}">
+                <input type="hidden" name="shot_type" value="3PT">
+                <input type="hidden" name="result" value="MADE">
+                <button type="submit" class="shot-btn btn-3pt">3PT</button>
+              </form>
+            </div>
+          </div>
+          {% empty %}
+          <div style="text-align: center; color: #ccc; padding: 20px;">
+            No active players set. Use "Set Active" tab to select 5 players.
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    
+    <!-- Foul Section -->
+    <div class="foul-section">
+      <div class="foul-team">
+        <div class="foul-title">{{ game.team1.name }} Fouls</div>
+        <div class="foul-count">{{ game_state.team2_foul_points }}</div>
+        <div class="foul-buttons">
+          <form method="post" style="display: inline;">{% csrf_token %}
+            <input type="hidden" name="action" value="foul">
+            <input type="hidden" name="team_id" value="{{ game.team1.id }}">
+            <input type="hidden" name="points_scored" value="1">
+            <button type="submit" class="shot-btn btn-ft">FT</button>
+          </form>
+          <form method="post" style="display: inline;">{% csrf_token %}
+            <input type="hidden" name="action" value="foul">
+            <input type="hidden" name="team_id" value="{{ game.team1.id }}">
+            <input type="hidden" name="points_scored" value="2">
+            <button type="submit" class="shot-btn btn-2pt">2PT</button>
+          </form>
+          <form method="post" style="display: inline;">{% csrf_token %}
+            <input type="hidden" name="action" value="foul">
+            <input type="hidden" name="team_id" value="{{ game.team1.id }}">
+            <input type="hidden" name="points_scored" value="3">
+            <button type="submit" class="shot-btn btn-3pt">3PT</button>
+          </form>
+        </div>
+      </div>
+      <div class="foul-team">
+        <div class="foul-title">{{ game.team2.name }} Fouls</div>
+        <div class="foul-count">{{ game_state.team1_foul_points }}</div>
+        <div class="foul-buttons">
+          <form method="post" style="display: inline;">{% csrf_token %}
+            <input type="hidden" name="action" value="foul">
+            <input type="hidden" name="team_id" value="{{ game.team2.id }}">
+            <input type="hidden" name="points_scored" value="1">
+            <button type="submit" class="shot-btn btn-ft">FT</button>
+          </form>
+          <form method="post" style="display: inline;">{% csrf_token %}
+            <input type="hidden" name="action" value="foul">
+            <input type="hidden" name="team_id" value="{{ game.team2.id }}">
+            <input type="hidden" name="points_scored" value="2">
+            <button type="submit" class="shot-btn btn-2pt">2PT</button>
+          </form>
+          <form method="post" style="display: inline;">{% csrf_token %}
+            <input type="hidden" name="action" value="foul">
+            <input type="hidden" name="team_id" value="{{ game.team2.id }}">
+            <input type="hidden" name="points_scored" value="3">
+            <button type="submit" class="shot-btn btn-3pt">3PT</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Set Active Players Tab -->
+  <div id="active-tab" class="tab-content">
+    <div class="action-form">
+      <h3>Set Active Players (Exactly 5 per team)</h3>
+      <form method="post" id="activePlayersForm">{% csrf_token %}
+        <input type="hidden" name="action" value="set_active_players">
+        
+        <div class="teams-container">
+          <div>
+            <h4>{{ game.team1.name }} <span id="team1Count" class="player-count">(0/5)</span></h4>
+            {% for player in game.team1.players.all %}
+            <div class="form-group">
+              <label>
+                <input type="checkbox" name="team1_players" value="{{ player.id }}" 
+                       {% if player in team1_active_players %}checked{% endif %}
+                       onchange="updatePlayerCount('team1')">
+                {{ player.name }}
+              </label>
+            </div>
+            {% endfor %}
+          </div>
+          
+          <div>
+            <h4>{{ game.team2.name }} <span id="team2Count" class="player-count">(0/5)</span></h4>
+            {% for player in game.team2.players.all %}
+            <div class="form-group">
+              <label>
+                <input type="checkbox" name="team2_players" value="{{ player.id }}"
+                       {% if player in team2_active_players %}checked{% endif %}
+                       onchange="updatePlayerCount('team2')">
+                {{ player.name }}
+              </label>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        
+        <button type="submit" id="setActiveBtn" class="btn-primary">Set Active Players</button>
       </form>
     </div>
   </div>
-  <div class="row">
-    <div class="card">
-      <h2>{{ game.team1.name }}</h2>
-      <form method="post" action="{% url 'update_undo' game.id %}" class="inline" style="margin-bottom:8px">{% csrf_token %}
-        <input type="hidden" name="team_id" value="{{ game.team1.id }}" />
-        <button class="btn btn-outline" type="submit">Undo Last {{ game.team1.name }}</button>
-      </form>
-      <div class="stack">
-        {% for p in players %}
-          {% if p.team_id == game.team1_id %}
-            <form method="post" class="inline">{% csrf_token %}
-              <input type="hidden" name="player_id" value="{{ p.id }}" />
-              <span class="subtle">{{ p.name }}</span>
-              <button class="btn" name="points" value="1" type="submit">+1</button>
-              <button class="btn btn-primary" name="points" value="2" type="submit">+2</button>
-              <button class="btn btn-accent" name="points" value="3" type="submit">+3</button>
-            </form>
-          {% endif %}
-        {% endfor %}
+
+  <!-- Substitution Tab -->
+  <div id="sub-tab" class="tab-content">
+    <div class="action-form">
+      <h3>Player Substitution</h3>
+      
+      <div class="form-group">
+        <label>Select Team:</label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <button type="button" class="btn-primary team-select-btn" onclick="selectSubTeam('{{ game.team1.id }}', '{{ game.team1.name|escapejs }}')">
+            {{ game.team1.name }}
+          </button>
+          <button type="button" class="btn-primary team-select-btn" onclick="selectSubTeam('{{ game.team2.id }}', '{{ game.team2.name|escapejs }}')">
+            {{ game.team2.name }}
+          </button>
+        </div>
       </div>
-    </div>
-    <div class="card">
-      <h2>{{ game.team2.name }}</h2>
-      <form method="post" action="{% url 'update_undo' game.id %}" class="inline" style="margin-bottom:8px">{% csrf_token %}
-        <input type="hidden" name="team_id" value="{{ game.team2.id }}" />
-        <button class="btn btn-outline" type="submit">Undo Last {{ game.team2.name }}</button>
-      </form>
-      <div class="stack">
-        {% for p in players %}
-          {% if p.team_id == game.team2_id %}
-            <form method="post" class="inline">{% csrf_token %}
-              <input type="hidden" name="player_id" value="{{ p.id }}" />
-              <span class="subtle">{{ p.name }}</span>
-              <button class="btn" name="points" value="1" type="submit">+1</button>
-              <button class="btn btn-primary" name="points" value="2" type="submit">+2</button>
-              <button class="btn btn-accent" name="points" value="3" type="submit">+3</button>
-            </form>
-          {% endif %}
-        {% endfor %}
+      
+      <div id="substitution-interface" style="display: none;">
+        <form method="post" id="substitutionForm">{% csrf_token %}
+          <input type="hidden" name="action" value="substitution">
+          <input type="hidden" name="team_id" id="selected_team_id">
+          <input type="hidden" name="player_out_id" id="player_out_input">
+          <input type="hidden" name="player_in_id" id="player_in_input">
+          
+          <h4 id="selected_team_name" style="text-align: center; margin: 20px 0;"></h4>
+          
+          <div class="teams-container">
+            <div class="team-section">
+              <div class="team-title">Active Players (Sub Out)</div>
+              <div id="active-players-sub" class="player-list">
+                <!-- Active players will be populated here -->
+              </div>
+            </div>
+            
+            <div class="team-section">
+              <div class="team-title">Bench Players (Sub In)</div>
+              <div id="bench-players-sub" class="player-list">
+                <!-- Bench players will be populated here -->
+              </div>
+            </div>
+          </div>
+          
+          <button type="submit" id="makeSubBtn" class="btn-primary" disabled>Make Substitution</button>
+        </form>
       </div>
     </div>
   </div>
+</div>
+
+<script>
+// Team ID constants to avoid template variable issues
+const TEAM1_ID = "{{ game.team1.id }}";
+const TEAM2_ID = "{{ game.team2.id }}";
+
+function showTab(tabName) {
+  // Hide all tab contents
+  const tabContents = document.querySelectorAll('.tab-content');
+  tabContents.forEach(content => content.classList.remove('active'));
+  
+  // Remove active class from all tab buttons
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  tabBtns.forEach(btn => btn.classList.remove('active'));
+  
+  // Show selected tab content
+  document.getElementById(tabName + '-tab').classList.add('active');
+  
+  // Add active class to clicked tab button
+  event.target.classList.add('active');
+  
+  // Initialize counts if on active players tab
+  if (tabName === 'active') {
+    updatePlayerCount('team1');
+    updatePlayerCount('team2');
+  }
+}
+
+function updatePlayerCount(teamName) {
+  const checkboxes = document.querySelectorAll(`input[name="${teamName}_players"]:checked`);
+  const count = checkboxes.length;
+  const countSpan = document.getElementById(`${teamName}Count`);
+  const setActiveBtn = document.getElementById('setActiveBtn');
+  
+  countSpan.textContent = `(${count}/5)`;
+  countSpan.style.color = count === 5 ? '#28a745' : (count > 5 ? '#dc3545' : '#ffc107');
+  
+  // Disable/enable other checkboxes when limit reached
+  const allCheckboxes = document.querySelectorAll(`input[name="${teamName}_players"]`);
+  if (count >= 5) {
+    allCheckboxes.forEach(cb => {
+      if (!cb.checked) cb.disabled = true;
+    });
+  } else {
+    allCheckboxes.forEach(cb => cb.disabled = false);
+  }
+  
+  // Enable/disable submit button
+  const team1Count = document.querySelectorAll('input[name="team1_players"]:checked').length;
+  const team2Count = document.querySelectorAll('input[name="team2_players"]:checked').length;
+  setActiveBtn.disabled = !(team1Count === 5 && team2Count === 5);
+  setActiveBtn.textContent = (team1Count === 5 && team2Count === 5) ? 
+    'Set Active Players' : `Need exactly 5 players per team (${team1Count}/5, ${team2Count}/5)`;
+}
+
+function selectSubTeam(teamId, teamName) {
+  // Update selected team
+  document.getElementById('selected_team_id').value = teamId;
+  document.getElementById('selected_team_name').textContent = teamName;
+  
+  // Show substitution interface
+  document.getElementById('substitution-interface').style.display = 'block';
+  
+  // Update button states
+  document.querySelectorAll('.team-select-btn').forEach(btn => {
+    btn.classList.remove('selected');
+  });
+  event.target.classList.add('selected');
+  
+  // Populate player lists using data from the page
+  populateSubstitutionLists(teamId, teamName);
+  
+  // Reset selections
+  clearSubstitutionSelections();
+}
+
+function populateSubstitutionLists(teamId, teamName) {
+  const activeContainer = document.getElementById('active-players-sub');
+  const benchContainer = document.getElementById('bench-players-sub');
+  
+  // Clear existing lists
+  activeContainer.innerHTML = '';
+  benchContainer.innerHTML = '';
+  
+  // Get the correct checkbox set based on team ID
+  let allPlayerCheckboxes;
+  if (teamId === TEAM1_ID) {
+    allPlayerCheckboxes = document.querySelectorAll('input[name="team1_players"]');
+  } else if (teamId === TEAM2_ID) {
+    allPlayerCheckboxes = document.querySelectorAll('input[name="team2_players"]');
+  } else {
+    activeContainer.innerHTML = '<p style="text-align: center; color: #ccc;">Invalid team selected.</p>';
+    benchContainer.innerHTML = '<p style="text-align: center; color: #ccc;">Invalid team selected.</p>';
+    return;
+  }
+  
+  // Populate active players (those that are checked in the Set Active tab)
+  let hasActivePlayers = false;
+  allPlayerCheckboxes.forEach(checkbox => {
+    if (checkbox.checked) {
+      hasActivePlayers = true;
+      const playerName = checkbox.parentElement.textContent.trim();
+      const playerId = checkbox.value;
+      
+      const div = document.createElement('div');
+      div.className = 'player-item-selectable';
+      div.onclick = () => selectPlayerOut(playerId, playerName, div);
+      div.innerHTML = `
+        <input type="radio" name="player_out_radio" value="${playerId}">
+        <span>${playerName}</span>
+        <span style="font-size: 0.8em; color: #ccc;">Active</span>
+      `;
+      activeContainer.appendChild(div);
+    }
+  });
+  
+  if (!hasActivePlayers) {
+    activeContainer.innerHTML = '<p style="text-align: center; color: #ccc;">No active players set. Use "Set Active" tab first.</p>';
+  }
+  
+  // Populate bench players (those that are not checked)
+  let hasBenchPlayers = false;
+  allPlayerCheckboxes.forEach(checkbox => {
+    if (!checkbox.checked) {
+      hasBenchPlayers = true;
+      const playerName = checkbox.parentElement.textContent.trim();
+      const playerId = checkbox.value;
+      
+      const div = document.createElement('div');
+      div.className = 'player-item-selectable';
+      div.onclick = () => selectPlayerIn(playerId, playerName, div);
+      div.innerHTML = `
+        <input type="radio" name="player_in_radio" value="${playerId}">
+        <span>${playerName}</span>
+        <span style="font-size: 0.8em; color: #ccc;">Bench</span>
+      `;
+      benchContainer.appendChild(div);
+    }
+  });
+  
+  if (!hasBenchPlayers) {
+    benchContainer.innerHTML = '<p style="text-align: center; color: #ccc;">No bench players available</p>';
+  }
+}
+
+function selectPlayerOut(playerId, playerName, element) {
+  // Clear previous selections in active players
+  document.querySelectorAll('#active-players-sub .player-item-selectable').forEach(el => {
+    el.classList.remove('selected');
+  });
+  
+  // Select this player
+  element.classList.add('selected');
+  element.querySelector('input[type="radio"]').checked = true;
+  document.getElementById('player_out_input').value = playerId;
+  
+  updateSubstitutionButton();
+}
+
+function selectPlayerIn(playerId, playerName, element) {
+  // Clear previous selections in bench players
+  document.querySelectorAll('#bench-players-sub .player-item-selectable').forEach(el => {
+    el.classList.remove('selected');
+  });
+  
+  // Select this player
+  element.classList.add('selected');
+  element.querySelector('input[type="radio"]').checked = true;
+  document.getElementById('player_in_input').value = playerId;
+  
+  updateSubstitutionButton();
+}
+
+function updateSubstitutionButton() {
+  const playerOut = document.getElementById('player_out_input').value;
+  const playerIn = document.getElementById('player_in_input').value;
+  const makeSubBtn = document.getElementById('makeSubBtn');
+  
+  const hasSelections = playerOut && playerIn;
+  makeSubBtn.disabled = !hasSelections;
+  makeSubBtn.textContent = hasSelections ? 'Make Substitution' : 'Select one player from each side';
+}
+
+function clearSubstitutionSelections() {
+  document.getElementById('player_out_input').value = '';
+  document.getElementById('player_in_input').value = '';
+  document.querySelectorAll('.player-item-selectable').forEach(el => {
+    el.classList.remove('selected');
+  });
+  document.querySelectorAll('input[name="player_out_radio"], input[name="player_in_radio"]').forEach(radio => {
+    radio.checked = false;
+  });
+  updateSubstitutionButton();
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+  updatePlayerCount('team1');
+  updatePlayerCount('team2');
+});
+</script>
+
 {% endblock %}

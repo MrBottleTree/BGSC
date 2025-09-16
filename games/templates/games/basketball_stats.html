@@ -1,0 +1,232 @@
+{% extends 'games/base.html' %} {% block title %}Basketball Stats - {{
+game.team1.name }} vs {{ game.team2.name }} | BGSC Leagues{% endblock %} {%
+block content %}
+<h1>Basketball Game Statistics</h1>
+<h2>
+  {{ game.team1.name }} {{ game.team1_score }} - {{ game.team2_score }} {{
+  game.team2.name }}
+</h2>
+
+<!-- Game Summary -->
+<div class="card">
+  <h3>Game Summary</h3>
+  <div class="row">
+    <div><strong>Status:</strong> {{ game.get_status_display }}</div>
+    <div>
+      <strong>Quarter:</strong> {{ game.current_quarter }} {% if
+      game.overtime_periods > 0 %}(OT{{ game.overtime_periods }}){% endif %}
+    </div>
+    {% if game.actual_start_time %}
+    <div>
+      <strong>Started:</strong> {{ game.actual_start_time|date:"M d, Y H:i" }}
+    </div>
+    {% endif %} {% if game.end_time %}
+    <div><strong>Ended:</strong> {{ game.end_time|date:"M d, Y H:i" }}</div>
+    {% endif %} {% if game.winner %}
+    <div><strong>Winner:</strong> {{ game.winner.name }}</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Team Shooting Statistics -->
+<div class="row">
+  <div class="card">
+    <h3>{{ game.team1.name }} Shooting</h3>
+    <div class="stack">
+      <div>
+        Field Goals: {{ team1_shooting.made_shots }}/{{
+        team1_shooting.total_shots }} ({{
+        team1_shooting.fg_percentage|floatformat:1 }}%)
+      </div>
+      <div>
+        3-Pointers: {{ team1_shooting.three_pointers_made }}/{{
+        team1_shooting.three_pointers_attempted }} ({{
+        team1_shooting.three_pt_percentage|floatformat:1 }}%)
+      </div>
+      <div>
+        Free Throws: {{ team1_shooting.free_throws_made }}/{{
+        team1_shooting.free_throws_attempted }} ({{
+        team1_shooting.ft_percentage|floatformat:1 }}%)
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>{{ game.team2.name }} Shooting</h3>
+    <div class="stack">
+      <div>
+        Field Goals: {{ team2_shooting.made_shots }}/{{
+        team2_shooting.total_shots }} ({{
+        team2_shooting.fg_percentage|floatformat:1 }}%)
+      </div>
+      <div>
+        3-Pointers: {{ team2_shooting.three_pointers_made }}/{{
+        team2_shooting.three_pointers_attempted }} ({{
+        team2_shooting.three_pt_percentage|floatformat:1 }}%)
+      </div>
+      <div>
+        Free Throws: {{ team2_shooting.free_throws_made }}/{{
+        team2_shooting.free_throws_attempted }} ({{
+        team2_shooting.ft_percentage|floatformat:1 }}%)
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Player Statistics -->
+<div class="row">
+  <div class="card">
+    <h3>{{ game.team1.name }} Player Stats</h3>
+    <table style="width: 100%; border-collapse: collapse">
+      <thead>
+        <tr>
+          <th>Player</th>
+          <th>Points</th>
+          <th>FG</th>
+          <th>3PT</th>
+          <th>FT</th>
+          <th>Assists</th>
+          <th>Fouls</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for stat in team1_player_stats %}
+        <tr>
+          <td>{{ stat.player.name }}</td>
+          <td>{{ stat.points }}</td>
+          <td>{{ stat.shots_made }}/{{ stat.shots_attempted }}</td>
+          <td>{{ stat.three_pointers_made }}</td>
+          <td>{{ stat.free_throws_made }}</td>
+          <td>{{ stat.assists }}</td>
+          <td>{{ stat.fouls }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>{{ game.team2.name }} Player Stats</h3>
+    <table style="width: 100%; border-collapse: collapse">
+      <thead>
+        <tr>
+          <th>Player</th>
+          <th>Points</th>
+          <th>FG</th>
+          <th>3PT</th>
+          <th>FT</th>
+          <th>Assists</th>
+          <th>Fouls</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for stat in team2_player_stats %}
+        <tr>
+          <td>{{ stat.player.name }}</td>
+          <td>{{ stat.points }}</td>
+          <td>{{ stat.shots_made }}/{{ stat.shots_attempted }}</td>
+          <td>{{ stat.three_pointers_made }}</td>
+          <td>{{ stat.free_throws_made }}</td>
+          <td>{{ stat.assists }}</td>
+          <td>{{ stat.fouls }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Shot Chart -->
+{% if shots %}
+<div class="card">
+  <h3>Shot Chart</h3>
+  <div class="stack">
+    {% for shot in shots %}
+    <div class="subtle">
+      Q{{ shot.quarter }} {{ shot.time_remaining_seconds }}s - {{
+      shot.player.name }} ({{ shot.team.name }}) {{ shot.get_shot_type_display
+      }} {{ shot.get_result_display }} {% if shot.points_scored > 0 %}({{
+      shot.points_scored }} pts){% endif %} {% if shot.assist_player %}(Assist:
+      {{ shot.assist_player.name }}){% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Fouls and Violations -->
+<div class="row">
+  {% if fouls %}
+  <div class="card">
+    <h3>Fouls</h3>
+    <div class="stack">
+      {% for foul in fouls %}
+      <div class="subtle">
+        Q{{ foul.quarter }} {{ foul.time_remaining_seconds }}s - {{
+        foul.player.name }} ({{ foul.team.name }}) {{ foul.get_foul_type_display
+        }} {% if foul.fouled_player %}on {{ foul.fouled_player.name }}{% endif
+        %} {% if foul.points_scored_from_foul > 0 %}({{
+        foul.points_scored_from_foul }} pts scored){% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %} {% if violations %}
+  <div class="card">
+    <h3>Violations</h3>
+    <div class="stack">
+      {% for violation in violations %}
+      <div class="subtle">
+        Q{{ violation.quarter }} {{ violation.time_remaining_seconds }}s - {{
+        violation.team.name }} {{ violation.get_violation_type_display }} {% if
+        violation.player %}({{ violation.player.name }}){% endif %} {% if
+        violation.points_awarded_to_opponent > 0 %}({{
+        violation.points_awarded_to_opponent }} pts awarded){% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Substitutions and Timeouts -->
+<div class="row">
+  {% if substitutions %}
+  <div class="card">
+    <h3>Substitutions</h3>
+    <div class="stack">
+      {% for sub in substitutions %}
+      <div class="subtle">
+        Q{{ sub.quarter }} {{ sub.time_remaining_seconds }}s - {{ sub.team.name
+        }}: {{ sub.player_out.name }} → {{ sub.player_in.name }}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %} {% if timeouts %}
+  <div class="card">
+    <h3>Timeouts</h3>
+    <div class="stack">
+      {% for timeout in timeouts %}
+      <div class="subtle">
+        Q{{ timeout.quarter }} {{ timeout.time_remaining_seconds }}s - {% if
+        timeout.team %}{{ timeout.team.name }}{% else %}Official{% endif %} {{
+        timeout.get_timeout_type_display }} ({{ timeout.duration_seconds }}s)
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Navigation -->
+<div class="card">
+  <div class="spaced">
+    <a href="{% url 'update_basketball' game.id %}" class="btn btn-primary"
+      >Back to Game</a
+    >
+    <a href="{% url 'dashboard' %}" class="btn btn-outline">Dashboard</a>
+  </div>
+</div>
+
+{% endblock %}

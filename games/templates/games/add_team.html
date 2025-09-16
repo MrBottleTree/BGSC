@@ -7,6 +7,8 @@
     <form method="post">{% csrf_token %}
       <label>Name</label>
       <input type="text" name="name" required />
+      <label>Logo URL (optional)</label>
+      <input type="text" name="logo" />
       <div style="margin-top:12px">
         <button class="btn btn-primary" type="submit">Create</button>
         <a class="btn btn-outline" href="{% url 'dashboard' %}">Cancel</a>

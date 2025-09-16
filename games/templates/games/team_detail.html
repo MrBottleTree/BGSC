@@ -2,14 +2,63 @@
 {% block title %}Team {{ team.name }} | BGSC Leagues{% endblock %}
 {% block content %}
   <h1>Team: {{ team.name }}</h1>
+  
+  <!-- Captain Section -->
+  <div class="card">
+    <h2 class="section-title">Team Captain</h2>
+    {% if team.leader %}
+      <div class="spaced" style="align-items: center;">
+        <div>
+          <strong>{{ team.leader.name }}</strong>
+          <span class="badge" style="margin-left: 8px;">Captain</span>
+        </div>
+        <form method="post" class="inline">{% csrf_token %}
+          <input type="hidden" name="action" value="remove_captain" />
+          <button class="btn btn-outline" type="submit" onclick="return confirm('Remove {{ team.leader.name }} as captain?')">
+            Remove Captain
+          </button>
+        </form>
+      </div>
+    {% else %}
+      <div style="color: #666; margin-bottom: 12px;">No captain assigned</div>
+    {% endif %}
+    
+    {% if team.players.all %}
+      <form method="post" style="margin-top: 12px;">{% csrf_token %}
+        <input type="hidden" name="action" value="set_captain" />
+        <label>{% if team.leader %}Change Captain{% else %}Select Captain{% endif %}</label>
+        <div style="display: flex; gap: 8px; margin-top: 8px;">
+          <select name="captain_id" class="form-control" required>
+            <option value="">Choose player...</option>
+            {% for p in team.players.all %}
+              <option value="{{ p.id }}" {% if team.leader and p.id == team.leader.id %}selected{% endif %}>
+                {{ p.name }}
+              </option>
+            {% endfor %}
+          </select>
+          <button class="btn btn-primary" type="submit">
+            {% if team.leader %}Change{% else %}Set{% endif %} Captain
+          </button>
+        </div>
+      </form>
+    {% endif %}
+  </div>
+  
   <div class="card">
     <h2 class="section-title">Members ({{ team.players.all|length }})</h2>
     <div class="stack">
       {% for p in team.players.all %}
         <div class="spaced">
-          <div>{{ p.name }}</div>
+          <div>
+            {{ p.name }}
+            {% if team.leader and p.id == team.leader.id %}
+              <span class="badge" style="background: #28a745; margin-left: 8px;">Captain</span>
+            {% endif %}
+          </div>
           <form method="post" action="{% url 'remove_player' team.id p.id %}" class="inline">{% csrf_token %}
-            <button class="btn btn-danger" type="submit" onclick="return confirm('Remove {{ p.name }} from {{ team.name }}?')">Remove</button>
+            <button class="btn btn-danger" type="submit" onclick="return confirm('Remove {{ p.name }} from {{ team.name }}?{% if team.leader and p.id == team.leader.id %} This will also remove them as captain.{% endif %}')">
+              Remove
+            </button>
           </form>
         </div>
       {% empty %}
@@ -21,6 +70,7 @@
   <div class="card">
     <h3 class="section-title">Add Player</h3>
     <form method="post">{% csrf_token %}
+      <input type="hidden" name="action" value="add_player" />
       <label>Name</label>
       <input type="text" name="name" required />
       <div style="margin-top:12px">
