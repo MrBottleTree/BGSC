@@ -77,20 +77,28 @@
   {% else %}
     <div class="card">No upcoming games scheduled.</div>
   {% endif %}
+  
   <script>
     (function() {
       var ws;
       var retries = 0;
       var maxRetries = 10;
+      var lastActivity = Date.now();
+      var wasHidden = false;
+
       function connect() {
         try {
           var proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
           ws = new WebSocket(proto + '://' + window.location.host + '/ws/live/');
+          
           ws.onopen = function() {
             retries = 0;
+            lastActivity = Date.now();
             console.debug('[live] connected');
           };
+          
           ws.onmessage = function(ev) {
+            lastActivity = Date.now();
             try {
               var msg = JSON.parse(ev.data || '{}');
               if (msg && (msg.kind === 'score_update' || msg.kind === 'undo' || msg.kind === 'status_change' || msg.kind === 'state_update')) {
@@ -100,20 +108,81 @@
               window.location.reload();
             }
           };
+          
           ws.onclose = function() {
+            console.debug('[live] connection closed');
             if (retries < maxRetries) {
               var backoff = Math.min(1000 * Math.pow(2, retries++), 10000);
               setTimeout(connect, backoff);
             }
           };
+          
           ws.onerror = function() {
+            console.debug('[live] connection error');
             try { ws.close(); } catch (e) {}
           };
         } catch (e) {
-          // swallow
+          console.debug('[live] connection failed:', e);
         }
       }
+
+      // Handle mobile browser backgrounding/foregrounding
+      function handleVisibilityChange() {
+        if (document.hidden) {
+          wasHidden = true;
+          console.debug('[live] page hidden');
+        } else {
+          console.debug('[live] page visible');
+          if (wasHidden) {
+            // Force refresh when page becomes visible again after being hidden
+            console.debug('[live] refreshing after being hidden');
+            window.location.reload();
+          }
+        }
+      }
+
+      // Handle window focus/blur (additional mobile support)
+      function handleFocus() {
+        console.debug('[live] window focused');
+        if (wasHidden) {
+          console.debug('[live] refreshing after focus');
+          window.location.reload();
+        }
+      }
+
+      function handleBlur() {
+        wasHidden = true;
+        console.debug('[live] window blurred');
+      }
+
+      // Check connection health periodically
+      function healthCheck() {
+        if (Date.now() - lastActivity > 30000) { // 30 seconds
+          console.debug('[live] connection seems stale, reconnecting');
+          if (ws) {
+            try { ws.close(); } catch (e) {}
+          }
+          connect();
+        }
+      }
+
+      // Set up event listeners
+      if (typeof document.hidden !== 'undefined') {
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+      }
+      
+      window.addEventListener('focus', handleFocus);
+      window.addEventListener('blur', handleBlur);
+      window.addEventListener('pageshow', function(event) {
+        if (event.persisted || wasHidden) {
+          console.debug('[live] page shown from cache or after being hidden');
+          window.location.reload();
+        }
+      });
+
+      // Start connection and health check
       connect();
+      setInterval(healthCheck, 15000); // Check every 15 seconds
     })();
   </script>
 {% endblock %}
