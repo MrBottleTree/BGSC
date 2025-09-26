@@ -5,6 +5,7 @@
   .mobile-container {
     max-width: 100vw;
     overflow: hidden;
+    padding: 0 5px;
   }
   
   .game-header {
@@ -69,7 +70,7 @@
   
   .action-buttons {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
     gap: 10px;
     margin-bottom: 20px;
   }
@@ -88,9 +89,23 @@
   
   .teams-container {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 15px;
     margin-bottom: 20px;
+  }
+  
+  @media (min-width: 768px) {
+    .teams-container {
+      grid-template-columns: 1fr 1fr;
+    }
+    
+    .mobile-container {
+      padding: 0 10px;
+    }
+    
+    .action-buttons {
+      grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+    }
   }
   
   .team-section {
@@ -118,12 +133,14 @@
     padding: 8px;
     background: #404040;
     border-radius: 6px;
+    flex-wrap: wrap;
   }
   
   .player-info {
     display: flex;
     flex-direction: column;
     flex: 1;
+    min-width: 120px;
   }
   
   .player-name {
@@ -139,6 +156,39 @@
   .quick-actions {
     display: flex;
     gap: 3px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  
+  @media (max-width: 480px) {
+    .quick-actions {
+      width: 100%;
+      justify-content: space-around;
+      margin-top: 8px;
+    }
+    
+    .player-row {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    
+    .player-info {
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    
+    .score-display {
+      font-size: 1.3em;
+    }
+    
+    .game-info {
+      font-size: 0.9em;
+    }
+    
+    .tab-btn {
+      padding: 12px 8px;
+      font-size: 0.8em;
+    }
   }
   
   .shot-btn {
@@ -147,12 +197,21 @@
     border-radius: 4px;
     font-size: 0.75em;
     cursor: pointer;
-    min-width: 30px;
+    min-width: 35px;
+  }
+  
+  @media (max-width: 480px) {
+    .shot-btn {
+      flex: 1;
+      margin: 2px;
+      min-width: 0;
+    }
   }
   
   .btn-ft { background: #6c757d; color: white; }
   .btn-2pt { background: #28a745; color: white; }
   .btn-3pt { background: #ffc107; color: black; }
+  .btn-foul { background: #dc3545; color: white; }
   
   .foul-section {
     display: grid;
@@ -210,6 +269,7 @@
     font-size: 1em;
     background: #404040;
     color: white;
+    box-sizing: border-box;
   }
   
   .btn-primary {
@@ -269,6 +329,51 @@
   }
   
   .hidden { display: none !important; }
+  
+  /* Responsive improvements for forms */
+  @media (max-width: 768px) {
+    .action-form {
+      padding: 15px;
+    }
+    
+    .teams-container h4 {
+      font-size: 1em;
+    }
+    
+    .form-group label {
+      font-size: 0.9em;
+    }
+    
+    .player-item-selectable {
+      padding: 8px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .mobile-container {
+      padding: 0;
+    }
+    
+    .game-header, .action-form, .team-section {
+      margin: 10px 5px;
+      border-radius: 6px;
+    }
+    
+    .tabs-container {
+      margin: 10px 5px;
+    }
+    
+    .action-buttons {
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin: 10px 5px;
+    }
+    
+    .action-btn {
+      padding: 10px 8px;
+      font-size: 0.8em;
+    }
+  }
 </style>
 
 <div class="mobile-container">
@@ -292,7 +397,7 @@
       Quarter {{ game.current_quarter }}
     </div>
     <div class="game-info">
-      Points from Fouls: {{ game.team1.name }} ({{ game_state.team1_foul_points }}) | {{ game.team2.name }} ({{ game_state.team2_foul_points }})
+      Team Fouls: {{ game.team1.name }} ({{ game_state.team1_fouls }}) | {{ game.team2.name }} ({{ game_state.team2_fouls }})
     </div>
   </div>
 
@@ -342,7 +447,7 @@
                 {% with player.id|stringformat:"s" as pid %}
                   {% for stat in team1_stats %}
                     {% if stat.player.id|stringformat:"s" == pid %}
-                      Points: {{ stat.points }}
+                      Points: {{ stat.points }} | Fouls: {% for pid_key, foul_count in player_fouls.items %}{% if pid_key == player.id %}{{ foul_count }}{% endif %}{% empty %}0{% endfor %}
                     {% endif %}
                   {% endfor %}
                 {% endwith %}
@@ -354,7 +459,7 @@
                 <input type="hidden" name="player_id" value="{{ player.id }}">
                 <input type="hidden" name="shot_type" value="FT">
                 <input type="hidden" name="result" value="MADE">
-                <button type="submit" class="shot-btn btn-ft">FT</button>
+                <button type="submit" class="shot-btn btn-ft">1PT</button>
               </form>
               <form method="post" style="display: inline;">{% csrf_token %}
                 <input type="hidden" name="action" value="shot">
@@ -369,6 +474,11 @@
                 <input type="hidden" name="shot_type" value="3PT">
                 <input type="hidden" name="result" value="MADE">
                 <button type="submit" class="shot-btn btn-3pt">3PT</button>
+              </form>
+              <form method="post" style="display: inline;">{% csrf_token %}
+                <input type="hidden" name="action" value="player_foul">
+                <input type="hidden" name="player_id" value="{{ player.id }}">
+                <button type="submit" class="shot-btn btn-foul">Foul</button>
               </form>
             </div>
           </div>
@@ -391,7 +501,7 @@
                 {% with player.id|stringformat:"s" as pid %}
                   {% for stat in team2_stats %}
                     {% if stat.player.id|stringformat:"s" == pid %}
-                      Points: {{ stat.points }}
+                      Points: {{ stat.points }} | Fouls: {% for pid_key, foul_count in player_fouls.items %}{% if pid_key == player.id %}{{ foul_count }}{% endif %}{% empty %}0{% endfor %}
                     {% endif %}
                   {% endfor %}
                 {% endwith %}
@@ -403,7 +513,7 @@
                 <input type="hidden" name="player_id" value="{{ player.id }}">
                 <input type="hidden" name="shot_type" value="FT">
                 <input type="hidden" name="result" value="MADE">
-                <button type="submit" class="shot-btn btn-ft">FT</button>
+                <button type="submit" class="shot-btn btn-ft">1PT</button>
               </form>
               <form method="post" style="display: inline;">{% csrf_token %}
                 <input type="hidden" name="action" value="shot">
@@ -419,6 +529,11 @@
                 <input type="hidden" name="result" value="MADE">
                 <button type="submit" class="shot-btn btn-3pt">3PT</button>
               </form>
+              <form method="post" style="display: inline;">{% csrf_token %}
+                <input type="hidden" name="action" value="player_foul">
+                <input type="hidden" name="player_id" value="{{ player.id }}">
+                <button type="submit" class="shot-btn btn-foul">Foul</button>
+              </form>
             </div>
           </div>
           {% empty %}
@@ -426,58 +541,6 @@
             No active players set. Use "Set Active" tab to select 5 players.
           </div>
           {% endfor %}
-        </div>
-      </div>
-    </div>
-    
-    <!-- Foul Section -->
-    <div class="foul-section">
-      <div class="foul-team">
-        <div class="foul-title">{{ game.team1.name }} Fouls</div>
-        <div class="foul-count">{{ game_state.team2_foul_points }}</div>
-        <div class="foul-buttons">
-          <form method="post" style="display: inline;">{% csrf_token %}
-            <input type="hidden" name="action" value="foul">
-            <input type="hidden" name="team_id" value="{{ game.team1.id }}">
-            <input type="hidden" name="points_scored" value="1">
-            <button type="submit" class="shot-btn btn-ft">FT</button>
-          </form>
-          <form method="post" style="display: inline;">{% csrf_token %}
-            <input type="hidden" name="action" value="foul">
-            <input type="hidden" name="team_id" value="{{ game.team1.id }}">
-            <input type="hidden" name="points_scored" value="2">
-            <button type="submit" class="shot-btn btn-2pt">2PT</button>
-          </form>
-          <form method="post" style="display: inline;">{% csrf_token %}
-            <input type="hidden" name="action" value="foul">
-            <input type="hidden" name="team_id" value="{{ game.team1.id }}">
-            <input type="hidden" name="points_scored" value="3">
-            <button type="submit" class="shot-btn btn-3pt">3PT</button>
-          </form>
-        </div>
-      </div>
-      <div class="foul-team">
-        <div class="foul-title">{{ game.team2.name }} Fouls</div>
-        <div class="foul-count">{{ game_state.team1_foul_points }}</div>
-        <div class="foul-buttons">
-          <form method="post" style="display: inline;">{% csrf_token %}
-            <input type="hidden" name="action" value="foul">
-            <input type="hidden" name="team_id" value="{{ game.team2.id }}">
-            <input type="hidden" name="points_scored" value="1">
-            <button type="submit" class="shot-btn btn-ft">FT</button>
-          </form>
-          <form method="post" style="display: inline;">{% csrf_token %}
-            <input type="hidden" name="action" value="foul">
-            <input type="hidden" name="team_id" value="{{ game.team2.id }}">
-            <input type="hidden" name="points_scored" value="2">
-            <button type="submit" class="shot-btn btn-2pt">2PT</button>
-          </form>
-          <form method="post" style="display: inline;">{% csrf_token %}
-            <input type="hidden" name="action" value="foul">
-            <input type="hidden" name="team_id" value="{{ game.team2.id }}">
-            <input type="hidden" name="points_scored" value="3">
-            <button type="submit" class="shot-btn btn-3pt">3PT</button>
-          </form>
         </div>
       </div>
     </div>

@@ -27,6 +27,12 @@ urlpatterns = [
     path('basketball/start/<int:game_id>/', views.start_basketball_game, name='start_basketball_game'),
     path('basketball/end/<int:game_id>/', views.end_basketball_game, name='end_basketball_game'),
     path('api/basketball/<int:game_id>/stats/', views.basketball_api_stats, name='basketball_api_stats'),
+    path('api/basketball/games/', views.api_basketball_games, name='api_basketball_games'),
+    path('api/basketball/<int:game_id>/events/', views.api_basketball_game_events, name='api_basketball_game_events'),
+    path('api/basketball/<int:game_id>/player-stats/', views.api_basketball_player_stats, name='api_basketball_player_stats'),
+    path('api/basketball/<int:game_id>/live/', views.api_basketball_live_update, name='api_basketball_live_update'),
+    path('api/basketball/player-stats/', views.api_basketball_overall_player_stats, name='api_basketball_overall_player_stats'),
+    path('api/basketball/team-standings/', views.api_basketball_team_standings, name='api_basketball_team_standings'),
 
     path('dashboard/game-status/<int:game_id>/', views.set_game_status, name='set_game_status'),
 

@@ -263,7 +263,6 @@ class BasketballFoul(models.Model):
     player = models.ForeignKey(Player, related_name='basketball_fouls', on_delete=models.CASCADE)
     foul_type = models.CharField(max_length=12, choices=FOUL_TYPE_CHOICES)
     shots_awarded = models.CharField(max_length=7, choices=SHOT_AWARDED_CHOICES, default='NONE')
-    points_scored_from_foul = models.PositiveIntegerField(default=0)
     quarter = models.PositiveIntegerField()
     time_remaining_seconds = models.PositiveIntegerField()
     fouled_player = models.ForeignKey(Player, related_name='basketball_fouls_received', on_delete=models.SET_NULL, null=True, blank=True)

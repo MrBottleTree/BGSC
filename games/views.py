@@ -24,6 +24,10 @@ def api_get_matches(request):
             } if g.team2 else None,
             'team1_score': g.team1_score,
             'team2_score': g.team2_score,
+            'winner': {
+                'id': g.winner.id,
+                'name': g.winner.name
+            } if hasattr(g, 'winner') and g.winner else None,
             'created_at': g.created_at.isoformat() if g.created_at else None,
             'updated_at': g.updated_at.isoformat() if g.updated_at else None,
         }
@@ -33,35 +37,10 @@ def api_get_matches(request):
             try:
                 basketball_game = Basketball.objects.get(id=g.id)
                 
-                # Get stop times
-                stops = basketball_game.stops.all().order_by('time_started')
-                stop_data = []
-                for stop in stops:
-                    stop_data.append({
-                        'time_started': stop.time_started.isoformat(),
-                        'time_ended': stop.time_ended.isoformat() if stop.time_ended else None,
-                        'duration_seconds': stop.duration(),
-                    })
-                
-                # Get timeout count
-                timeout_count = basketball_game.timeouts.count()
-                team1_timeouts = basketball_game.timeouts.filter(team=basketball_game.team1).count()
-                team2_timeouts = basketball_game.timeouts.filter(team=basketball_game.team2).count()
-                
                 match_data['basketball_details'] = {
-                    'actual_start_time': basketball_game.actual_start_time.isoformat() if basketball_game.actual_start_time else None,
-                    'end_time': basketball_game.end_time.isoformat() if basketball_game.end_time else None,
                     'current_quarter': basketball_game.current_quarter,
-                    'time_remaining_seconds': basketball_game.time_remaining_seconds,
-                    'overtime_periods': basketball_game.overtime_periods,
                     'team1_fouls': basketball_game.team1_fouls_current_quarter,
                     'team2_fouls': basketball_game.team2_fouls_current_quarter,
-                    'possession_team_id': basketball_game.possession_team.id if basketball_game.possession_team else None,
-                    'possession_team_name': basketball_game.possession_team.name if basketball_game.possession_team else None,
-                    'stops': stop_data,
-                    'total_timeouts': timeout_count,
-                    'team1_timeouts': team1_timeouts,
-                    'team2_timeouts': team2_timeouts,
                     'active_players': {
                         'team1': [{'id': p.id, 'name': p.name} for p in basketball_game.get_team1_active_players()],
                         'team2': [{'id': p.id, 'name': p.name} for p in basketball_game.get_team2_active_players()],
@@ -262,35 +241,15 @@ def _get_or_create_stat(game: Game, player: Player):
 def _get_basketball_game_state(game: Basketball):
     """Get current state of basketball game statistics"""
     try:
-        # Calculate total points awarded from fouls (doesn't reset on quarter change)
-        team1_foul_points = 0
-        team2_foul_points = 0
-        
-        # Get points awarded to opposing teams from fouls
-        try:
-            from games.models import BasketballFoul
-            team1_fouls = BasketballFoul.objects.filter(game=game, team=game.team1)
-            team2_fouls = BasketballFoul.objects.filter(game=game, team=game.team2)
-            
-            # Points go to the opposing team, so team1 fouls give points to team2
-            team2_foul_points = sum(foul.points_scored_from_foul for foul in team1_fouls)
-            team1_foul_points = sum(foul.points_scored_from_foul for foul in team2_fouls)
-        except:
-            pass
-            
         return {
             'team1_fouls': game.team1_fouls_current_quarter,
             'team2_fouls': game.team2_fouls_current_quarter,
-            'team1_foul_points': team1_foul_points,
-            'team2_foul_points': team2_foul_points,
         }
     except AttributeError:
         # Handle case where new fields don't exist yet
         return {
             'team1_fouls': 0,
             'team2_fouls': 0,
-            'team1_foul_points': 0,
-            'team2_foul_points': 0,
         }
 
 
@@ -350,6 +309,17 @@ def _set_initial_active_players(game: Basketball, team1_player_ids, team2_player
         return False, f"Error setting active players: {str(e)}"
 
 
+def _determine_basketball_winner(game: Basketball) -> None:
+    """Determine and set the winner of a basketball game based on final scores"""
+    if game.team1_score > game.team2_score:
+        game.winner = game.team1
+    elif game.team2_score > game.team1_score:
+        game.winner = game.team2
+    else:
+        # It's a tie - winner remains null
+        game.winner = None
+
+
 def _broadcast_game_update(game: Game, kind: str = "score_update", extra: dict | None = None) -> None:
     layer = get_channel_layer()
     if not layer:
@@ -376,6 +346,15 @@ def _broadcast_game_update(game: Game, kind: str = "score_update", extra: dict |
             
         except Basketball.DoesNotExist:
             pass
+    
+    # Add winner information if game is finished
+    if game.status == "FINISHED" and hasattr(game, 'winner') and game.winner:
+        data.update({
+            "winner": {
+                "id": game.winner.id,
+                "name": game.winner.name
+            }
+        })
     
     if extra:
         data.update(extra)
@@ -517,9 +496,46 @@ def update_basketball(request, game_id: int):
             }
             _broadcast_game_update(game, kind="shot", extra=shot_data)
         
+        elif action == "player_foul":
+            player_id = int(request.POST.get("player_id"))
+            player = get_object_or_404(Player, pk=player_id)
+            
+            # Validate that player is active
+            if not _validate_active_player(game, player):
+                return redirect("update_basketball", game_id=game.id)
+            
+            # Create foul record for the specific player
+            foul = BasketballFoul.objects.create(
+                game=game,
+                team=player.team,
+                player=player,
+                foul_type="PERSONAL",
+                shots_awarded="NONE",
+                quarter=game.current_quarter,
+                time_remaining_seconds=game.time_remaining_seconds,
+            )
+            
+            # Update team foul count
+            if player.team.id == game.team1_id:
+                game.team1_fouls_current_quarter += 1
+            else:
+                game.team2_fouls_current_quarter += 1
+            game.save()
+            
+            # Broadcast foul event
+            foul_data = {
+                "foul_id": foul.id,
+                "player_name": player.name,
+                "player_id": player.id,
+                "team_name": player.team.name,
+                "team_id": player.team.id,
+                "team1_fouls": game.team1_fouls_current_quarter,
+                "team2_fouls": game.team2_fouls_current_quarter,
+            }
+            _broadcast_game_update(game, kind="player_foul", extra=foul_data)
+        
         elif action == "foul":
             team_id = int(request.POST.get("team_id"))
-            points_scored = int(request.POST.get("points_scored", 0))
             
             team = get_object_or_404(Team, pk=team_id)
             
@@ -530,9 +546,8 @@ def update_basketball(request, game_id: int):
                 player=team.players.first(),  # Use first player as placeholder
                 foul_type="PERSONAL",
                 shots_awarded="NONE",
-                points_scored_from_foul=points_scored,
-                quarter=1,  # Default quarter
-                time_remaining_seconds=0,  # Not tracking time
+                quarter=game.current_quarter,
+                time_remaining_seconds=game.time_remaining_seconds,
             )
             
             # Update team foul count
@@ -542,18 +557,11 @@ def update_basketball(request, game_id: int):
                 game.team2_fouls_current_quarter += 1
             game.save()
             
-            # Update score if points were scored
-            if points_scored > 0:
-                # Points go to the opposing team
-                opponent_team = game.team2 if team.id == game.team1_id else game.team1
-                _update_basketball_score(game, opponent_team, points_scored, broadcast=False)
-            
             # Broadcast foul event
             foul_data = {
                 "foul_id": foul.id,
                 "team_name": team.name,
                 "team_id": team.id,
-                "points_scored_from_foul": points_scored,
                 "team1_fouls": game.team1_fouls_current_quarter,
                 "team2_fouls": game.team2_fouls_current_quarter,
             }
@@ -650,6 +658,19 @@ def update_basketball(request, game_id: int):
                         stat.points = max(0, stat.points - points)
                         stat.save()
                     
+                    # Broadcast undo shot event
+                    undo_data = {
+                        "shot_id": last_shot.id,
+                        "player_name": last_shot.player.name,
+                        "player_id": last_shot.player.id,
+                        "team_name": last_shot.team.name,
+                        "team_id": last_shot.team.id,
+                        "shot_type": last_shot.shot_type,
+                        "result": last_shot.result,
+                        "points_reversed": points if last_shot.result == "MADE" else 0,
+                    }
+                    _broadcast_game_update(game, kind="undo_shot", extra=undo_data)
+                    
                     last_shot.delete()
             except Exception:
                 pass
@@ -666,12 +687,20 @@ def update_basketball(request, game_id: int):
                         game.team2_fouls_current_quarter = max(0, game.team2_fouls_current_quarter - 1)
                     game.save()
                     
-                    # Reverse points from free throws (points were awarded to opposing team)
-                    if last_foul.points_scored_from_foul > 0:
-                        # Points were awarded to the opposing team, so reverse from opposing team
-                        opponent_team = game.team2 if last_foul.team == game.team1 else game.team1
-                        _update_basketball_score(game, opponent_team, -last_foul.points_scored_from_foul)
+                    # Broadcast undo foul event
+                    undo_data = {
+                        "foul_id": last_foul.id,
+                        "player_name": last_foul.player.name,
+                        "player_id": last_foul.player.id,
+                        "team_name": last_foul.team.name,
+                        "team_id": last_foul.team.id,
+                        "foul_type": last_foul.foul_type,
+                        "team1_fouls": game.team1_fouls_current_quarter,
+                        "team2_fouls": game.team2_fouls_current_quarter,
+                    }
+                    _broadcast_game_update(game, kind="undo_foul", extra=undo_data)
                     
+                    # Delete the foul record (this will decrease the individual player's foul count)
                     last_foul.delete()
             except Exception:
                 pass
@@ -694,6 +723,20 @@ def update_basketball(request, game_id: int):
                             active_players.remove(last_sub.player_in)
                             active_players.append(last_sub.player_out)
                             game.team2_active_players.set(active_players)
+                    
+                    # Broadcast undo substitution event
+                    undo_data = {
+                        "substitution_id": last_sub.id,
+                        "team_name": last_sub.team.name,
+                        "team_id": last_sub.team.id,
+                        "player_out_name": last_sub.player_out.name,
+                        "player_out_id": last_sub.player_out.id,
+                        "player_in_name": last_sub.player_in.name,
+                        "player_in_id": last_sub.player_in.id,
+                        "team1_active_players": [{"id": p.id, "name": p.name} for p in game.get_team1_active_players()],
+                        "team2_active_players": [{"id": p.id, "name": p.name} for p in game.get_team2_active_players()],
+                    }
+                    _broadcast_game_update(game, kind="undo_substitution", extra=undo_data)
                     
                     last_sub.delete()
             except Exception:
@@ -731,6 +774,10 @@ def update_basketball(request, game_id: int):
                     # Game finished
                     game.status = "FINISHED"
                     game.quarter4_finished_time = timezone.now()
+                    
+                    # Determine and set the winner
+                    _determine_basketball_winner(game)
+                    
                     game.save()
                     _broadcast_game_update(game, kind="game_finished")
             except Exception:
@@ -754,12 +801,17 @@ def update_basketball(request, game_id: int):
                 elif game.current_quarter == 4 and not game.quarter4_finished_time:
                     game.quarter4_finished_time = current_time
                 
+                # Determine and set the winner
+                _determine_basketball_winner(game)
+                
                 game.save()
                 _broadcast_game_update(game, kind="game_finished")
+                
+                # Redirect to dashboard when game is ended
+                return redirect("dashboard")
             except Exception:
                 pass
         
-        _broadcast_game_update(game)
         return redirect("update_basketball", game_id=game.id)
 
     context = {
@@ -1174,12 +1226,8 @@ def end_basketball_game(request, game_id: int):
         game.status = "FINISHED"
         game.end_time = timezone.now()
         
-        # Determine winner
-        if game.team1_score > game.team2_score:
-            game.winner = game.team1
-        elif game.team2_score > game.team1_score:
-            game.winner = game.team2
-        # If tied, winner remains None
+        # Determine and set the winner
+        _determine_basketball_winner(game)
         
         game.save()
         _broadcast_game_update(game, kind="game_ended")
@@ -1214,7 +1262,6 @@ def basketball_api_stats(request, game_id: int):
             'player': foul.player.name,
             'team': foul.team.name,
             'description': f"{foul.player.name} - {foul.get_foul_type_display()}",
-            'points': foul.points_scored_from_foul,
             'time': foul.created_at.isoformat()
         })
     
@@ -1224,12 +1271,10 @@ def basketball_api_stats(request, game_id: int):
     data = {
         'game_id': game.id,
         'quarter': game.current_quarter,
-        'time_remaining': game.time_remaining_seconds,
         'team1_score': game.team1_score,
         'team2_score': game.team2_score,
         'team1_fouls': game.team1_fouls_current_quarter,
         'team2_fouls': game.team2_fouls_current_quarter,
-        'possession_team': game.possession_team.name if game.possession_team else None,
         'latest_events': latest_events[:10]
     }
     
@@ -1259,6 +1304,10 @@ def api_match_detail(request, match_id: int):
         },
         'team1_score': game.team1_score,
         'team2_score': game.team2_score,
+        'winner': {
+            'id': game.winner.id,
+            'name': game.winner.name
+        } if hasattr(game, 'winner') and game.winner else None,
         'created_at': game.created_at.isoformat(),
         'updated_at': game.updated_at.isoformat(),
         'events': []
@@ -1270,17 +1319,9 @@ def api_match_detail(request, match_id: int):
             
             # Basketball-specific details
             match_data['basketball_details'] = {
-                'actual_start_time': basketball_game.actual_start_time.isoformat() if basketball_game.actual_start_time else None,
-                'end_time': basketball_game.end_time.isoformat() if basketball_game.end_time else None,
                 'current_quarter': basketball_game.current_quarter,
-                'time_remaining_seconds': basketball_game.time_remaining_seconds,
-                'overtime_periods': basketball_game.overtime_periods,
                 'team1_fouls_current_quarter': basketball_game.team1_fouls_current_quarter,
                 'team2_fouls_current_quarter': basketball_game.team2_fouls_current_quarter,
-                'possession_team': {
-                    'id': basketball_game.possession_team.id,
-                    'name': basketball_game.possession_team.name,
-                } if basketball_game.possession_team else None,
                 'winner': {
                     'id': basketball_game.winner.id,
                     'name': basketball_game.winner.name,
@@ -1288,7 +1329,41 @@ def api_match_detail(request, match_id: int):
                 'active_players': {
                     'team1': [{'id': p.id, 'name': p.name} for p in basketball_game.get_team1_active_players()],
                     'team2': [{'id': p.id, 'name': p.name} for p in basketball_game.get_team2_active_players()],
-                }
+                },
+                'quarters': [
+                    {
+                        'quarter': 1,
+                        'team1_score': getattr(basketball_game, 'quarter1_team1_score', None),
+                        'team2_score': getattr(basketball_game, 'quarter1_team2_score', None),
+                        'team1_fouls': getattr(basketball_game, 'quarter1_team1_fouls', None),
+                        'team2_fouls': getattr(basketball_game, 'quarter1_team2_fouls', None),
+                        'finished_time': getattr(basketball_game, 'quarter1_finished_time', None).isoformat() if getattr(basketball_game, 'quarter1_finished_time', None) else None
+                    },
+                    {
+                        'quarter': 2,
+                        'team1_score': getattr(basketball_game, 'quarter2_team1_score', None),
+                        'team2_score': getattr(basketball_game, 'quarter2_team2_score', None),
+                        'team1_fouls': getattr(basketball_game, 'quarter2_team1_fouls', None),
+                        'team2_fouls': getattr(basketball_game, 'quarter2_team2_fouls', None),
+                        'finished_time': getattr(basketball_game, 'quarter2_finished_time', None).isoformat() if getattr(basketball_game, 'quarter2_finished_time', None) else None
+                    },
+                    {
+                        'quarter': 3,
+                        'team1_score': getattr(basketball_game, 'quarter3_team1_score', None),
+                        'team2_score': getattr(basketball_game, 'quarter3_team2_score', None),
+                        'team1_fouls': getattr(basketball_game, 'quarter3_team1_fouls', None),
+                        'team2_fouls': getattr(basketball_game, 'quarter3_team2_fouls', None),
+                        'finished_time': getattr(basketball_game, 'quarter3_finished_time', None).isoformat() if getattr(basketball_game, 'quarter3_finished_time', None) else None
+                    },
+                    {
+                        'quarter': 4,
+                        'team1_score': getattr(basketball_game, 'quarter4_team1_score', None),
+                        'team2_score': getattr(basketball_game, 'quarter4_team2_score', None),
+                        'team1_fouls': getattr(basketball_game, 'quarter4_team1_fouls', None),
+                        'team2_fouls': getattr(basketball_game, 'quarter4_team2_fouls', None),
+                        'finished_time': getattr(basketball_game, 'quarter4_finished_time', None).isoformat() if getattr(basketball_game, 'quarter4_finished_time', None) else None
+                    }
+                ]
             }
             
             # Get all basketball events
@@ -1302,18 +1377,11 @@ def api_match_detail(request, match_id: int):
                     'id': shot.id,
                     'timestamp': shot.created_at.isoformat(),
                     'quarter': shot.quarter,
-                    'time_remaining_seconds': shot.time_remaining_seconds,
                     'team': {'id': shot.team.id, 'name': shot.team.name},
                     'player': {'id': shot.player.id, 'name': shot.player.name},
                     'shot_type': shot.shot_type,
                     'shot_type_display': shot.get_shot_type_display(),
-                    'result': shot.result,
-                    'result_display': shot.get_result_display(),
                     'points_scored': shot.points_scored,
-                    'assist_player': {
-                        'id': shot.assist_player.id,
-                        'name': shot.assist_player.name
-                    } if shot.assist_player else None,
                 })
             
             # Fouls
@@ -1324,37 +1392,8 @@ def api_match_detail(request, match_id: int):
                     'id': foul.id,
                     'timestamp': foul.created_at.isoformat(),
                     'quarter': foul.quarter,
-                    'time_remaining_seconds': foul.time_remaining_seconds,
                     'team': {'id': foul.team.id, 'name': foul.team.name},
                     'player': {'id': foul.player.id, 'name': foul.player.name},
-                    'foul_type': foul.foul_type,
-                    'foul_type_display': foul.get_foul_type_display(),
-                    'shots_awarded': foul.shots_awarded,
-                    'shots_awarded_display': foul.get_shots_awarded_display(),
-                    'points_scored_from_foul': foul.points_scored_from_foul,
-                    'fouled_player': {
-                        'id': foul.fouled_player.id,
-                        'name': foul.fouled_player.name
-                    } if foul.fouled_player else None,
-                })
-            
-            # Violations
-            violations = BasketballViolation.objects.filter(game=basketball_game).select_related('team', 'player').order_by('-created_at')
-            for violation in violations:
-                events.append({
-                    'type': 'violation',
-                    'id': violation.id,
-                    'timestamp': violation.created_at.isoformat(),
-                    'quarter': violation.quarter,
-                    'time_remaining_seconds': violation.time_remaining_seconds,
-                    'team': {'id': violation.team.id, 'name': violation.team.name},
-                    'player': {
-                        'id': violation.player.id,
-                        'name': violation.player.name
-                    } if violation.player else None,
-                    'violation_type': violation.violation_type,
-                    'violation_type_display': violation.get_violation_type_display(),
-                    'points_awarded_to_opponent': violation.points_awarded_to_opponent,
                 })
             
             # Substitutions
@@ -1365,42 +1404,10 @@ def api_match_detail(request, match_id: int):
                     'id': sub.id,
                     'timestamp': sub.created_at.isoformat(),
                     'quarter': sub.quarter,
-                    'time_remaining_seconds': sub.time_remaining_seconds,
                     'team': {'id': sub.team.id, 'name': sub.team.name},
                     'player_out': {'id': sub.player_out.id, 'name': sub.player_out.name},
                     'player_in': {'id': sub.player_in.id, 'name': sub.player_in.name},
                 })
-            
-            # Timeouts
-            timeouts = BasketballTimeout.objects.filter(game=basketball_game).select_related('team').order_by('-created_at')
-            for timeout in timeouts:
-                events.append({
-                    'type': 'timeout',
-                    'id': timeout.id,
-                    'timestamp': timeout.created_at.isoformat(),
-                    'quarter': timeout.quarter,
-                    'time_remaining_seconds': timeout.time_remaining_seconds,
-                    'team': {
-                        'id': timeout.team.id,
-                        'name': timeout.team.name
-                    } if timeout.team else None,
-                    'timeout_type': timeout.timeout_type,
-                    'timeout_type_display': timeout.get_timeout_type_display(),
-                    'duration_seconds': timeout.duration_seconds,
-                })
-            
-            # Game stops
-            stops = BasketballStop.objects.filter(game=basketball_game).order_by('-time_started')
-            stop_events = []
-            for stop in stops:
-                stop_events.append({
-                    'id': stop.id,
-                    'time_started': stop.time_started.isoformat(),
-                    'time_ended': stop.time_ended.isoformat() if stop.time_ended else None,
-                    'duration_seconds': stop.duration(),
-                })
-            
-            match_data['basketball_details']['stops'] = stop_events
             
             # Sort all events by timestamp (most recent first)
             events.sort(key=lambda x: x['timestamp'], reverse=True)
@@ -1411,39 +1418,27 @@ def api_match_detail(request, match_id: int):
             team2_stats = []
             
             for stat in PlayerStat.objects.filter(game=game, team=game.team1).select_related('player'):
-                # Get additional basketball stats for this player
                 player_shots = shots.filter(player=stat.player)
                 player_fouls = fouls.filter(player=stat.player).count()
-                
                 team1_stats.append({
                     'player': {'id': stat.player.id, 'name': stat.player.name},
                     'points': stat.points,
                     'shots_made': player_shots.filter(result='MADE').count(),
-                    'shots_attempted': player_shots.count(),
                     'three_pointers_made': player_shots.filter(shot_type='3PT', result='MADE').count(),
-                    'three_pointers_attempted': player_shots.filter(shot_type='3PT').count(),
                     'free_throws_made': player_shots.filter(shot_type='FT', result='MADE').count(),
-                    'free_throws_attempted': player_shots.filter(shot_type='FT').count(),
                     'fouls': player_fouls,
-                    'assists': shots.filter(assist_player=stat.player).count(),
                 })
             
             for stat in PlayerStat.objects.filter(game=game, team=game.team2).select_related('player'):
-                # Get additional basketball stats for this player
                 player_shots = shots.filter(player=stat.player)
                 player_fouls = fouls.filter(player=stat.player).count()
-                
                 team2_stats.append({
                     'player': {'id': stat.player.id, 'name': stat.player.name},
                     'points': stat.points,
                     'shots_made': player_shots.filter(result='MADE').count(),
-                    'shots_attempted': player_shots.count(),
                     'three_pointers_made': player_shots.filter(shot_type='3PT', result='MADE').count(),
-                    'three_pointers_attempted': player_shots.filter(shot_type='3PT').count(),
                     'free_throws_made': player_shots.filter(shot_type='FT', result='MADE').count(),
-                    'free_throws_attempted': player_shots.filter(shot_type='FT').count(),
                     'fouls': player_fouls,
-                    'assists': shots.filter(assist_player=stat.player).count(),
                 })
             
             match_data['player_statistics'] = {
@@ -1501,3 +1496,355 @@ def api_local_ip(request):
     except Exception:
         local_ip = None
     return JsonResponse({'local_ip': local_ip})
+
+
+@require_GET
+def api_basketball_games(request):
+    """API endpoint to get all basketball games with simplified data"""
+    games = Basketball.objects.select_related('team1', 'team2').all().order_by('-created_at')
+    data = []
+    for game in games:
+        data.append({
+            'id': game.id,
+            'status': game.status,
+            'scheduled_time': game.scheduled_time.isoformat() if game.scheduled_time else None,
+            'actual_start_time': game.actual_start_time.isoformat() if game.actual_start_time else None,
+            'team1': {
+                'id': game.team1.id,
+                'name': game.team1.name,
+                'logo': game.team1.logo,
+            },
+            'team2': {
+                'id': game.team2.id,
+                'name': game.team2.name,
+                'logo': game.team2.logo,
+            },
+            'team1_score': game.team1_score,
+            'team2_score': game.team2_score,
+            'current_quarter': game.current_quarter,
+            'team1_fouls': game.team1_fouls_current_quarter,
+            'team2_fouls': game.team2_fouls_current_quarter,
+            'winner': {
+                'id': game.winner.id,
+                'name': game.winner.name,
+            } if game.winner else None,
+            'active_players': {
+                'team1': [{'id': p.id, 'name': p.name} for p in game.get_team1_active_players()],
+                'team2': [{'id': p.id, 'name': p.name} for p in game.get_team2_active_players()],
+            },
+            'created_at': game.created_at.isoformat(),
+            'updated_at': game.updated_at.isoformat(),
+        })
+    return JsonResponse({'basketball_games': data})
+
+
+@require_GET
+def api_basketball_game_events(request, game_id: int):
+    """API endpoint to get all events for a specific basketball game"""
+    game = get_object_or_404(Basketball, pk=game_id)
+    
+    events = []
+    
+    # Shots
+    shots = BasketballShot.objects.filter(game=game).select_related('player', 'team', 'assist_player').order_by('-created_at')
+    for shot in shots:
+        events.append({
+            'type': 'shot',
+            'id': shot.id,
+            'timestamp': shot.created_at.isoformat(),
+            'quarter': shot.quarter,
+            'team': {'id': shot.team.id, 'name': shot.team.name},
+            'player': {'id': shot.player.id, 'name': shot.player.name},
+            'shot_type': shot.shot_type,
+            'result': shot.result,
+            'points_scored': shot.points_scored,
+            'assist_player': {
+                'id': shot.assist_player.id,
+                'name': shot.assist_player.name
+            } if shot.assist_player else None,
+        })
+    
+    # Fouls
+    fouls = BasketballFoul.objects.filter(game=game).select_related('player', 'team', 'fouled_player').order_by('-created_at')
+    for foul in fouls:
+        events.append({
+            'type': 'foul',
+            'id': foul.id,
+            'timestamp': foul.created_at.isoformat(),
+            'quarter': foul.quarter,
+            'team': {'id': foul.team.id, 'name': foul.team.name},
+            'player': {'id': foul.player.id, 'name': foul.player.name},
+            'foul_type': foul.foul_type,
+            'fouled_player': {
+                'id': foul.fouled_player.id,
+                'name': foul.fouled_player.name
+            } if foul.fouled_player else None,
+        })
+    
+    # Substitutions
+    substitutions = BasketballSubstitution.objects.filter(game=game).select_related('team', 'player_out', 'player_in').order_by('-created_at')
+    for sub in substitutions:
+        events.append({
+            'type': 'substitution',
+            'id': sub.id,
+            'timestamp': sub.created_at.isoformat(),
+            'quarter': sub.quarter,
+            'team': {'id': sub.team.id, 'name': sub.team.name},
+            'player_out': {'id': sub.player_out.id, 'name': sub.player_out.name},
+            'player_in': {'id': sub.player_in.id, 'name': sub.player_in.name},
+        })
+    
+    # Sort events by timestamp (most recent first)
+    events.sort(key=lambda x: x['timestamp'], reverse=True)
+    
+    return JsonResponse({
+        'game_id': game.id,
+        'events': events
+    })
+
+
+@require_GET
+def api_basketball_player_stats(request, game_id: int):
+    """API endpoint to get player statistics for a basketball game"""
+    game = get_object_or_404(Basketball, pk=game_id)
+    
+    # Get all shots and fouls for stats calculation
+    shots = BasketballShot.objects.filter(game=game).select_related('player', 'team', 'assist_player')
+    fouls = BasketballFoul.objects.filter(game=game).select_related('player')
+    
+    team1_stats = []
+    team2_stats = []
+    
+    # Team 1 stats
+    for stat in PlayerStat.objects.filter(game=game, team=game.team1).select_related('player'):
+        player_shots = shots.filter(player=stat.player)
+        player_fouls_count = fouls.filter(player=stat.player).count()
+        
+        team1_stats.append({
+            'player': {'id': stat.player.id, 'name': stat.player.name},
+            'points': stat.points,
+            'shots_made': player_shots.filter(result='MADE').count(),
+            'shots_attempted': player_shots.count(),
+            'three_pointers_made': player_shots.filter(shot_type='3PT', result='MADE').count(),
+            'three_pointers_attempted': player_shots.filter(shot_type='3PT').count(),
+            'free_throws_made': player_shots.filter(shot_type='FT', result='MADE').count(),
+            'free_throws_attempted': player_shots.filter(shot_type='FT').count(),
+            'fouls': player_fouls_count,
+            'assists': shots.filter(assist_player=stat.player).count(),
+        })
+    
+    # Team 2 stats
+    for stat in PlayerStat.objects.filter(game=game, team=game.team2).select_related('player'):
+        player_shots = shots.filter(player=stat.player)
+        player_fouls_count = fouls.filter(player=stat.player).count()
+        
+        team2_stats.append({
+            'player': {'id': stat.player.id, 'name': stat.player.name},
+            'points': stat.points,
+            'shots_made': player_shots.filter(result='MADE').count(),
+            'shots_attempted': player_shots.count(),
+            'three_pointers_made': player_shots.filter(shot_type='3PT', result='MADE').count(),
+            'three_pointers_attempted': player_shots.filter(shot_type='3PT').count(),
+            'free_throws_made': player_shots.filter(shot_type='FT', result='MADE').count(),
+            'free_throws_attempted': player_shots.filter(shot_type='FT').count(),
+            'fouls': player_fouls_count,
+            'assists': shots.filter(assist_player=stat.player).count(),
+        })
+    
+    return JsonResponse({
+        'game_id': game.id,
+        'team1_stats': team1_stats,
+        'team2_stats': team2_stats,
+    })
+
+
+@require_GET  
+def api_basketball_live_update(request, game_id: int):
+    """API endpoint for real-time basketball game updates - simplified"""
+    game = get_object_or_404(Basketball, pk=game_id)
+    
+    # Get latest events (last 5)
+    latest_shots = BasketballShot.objects.filter(game=game).order_by('-created_at')[:3]
+    latest_fouls = BasketballFoul.objects.filter(game=game).order_by('-created_at')[:2]
+    
+    recent_events = []
+    
+    for shot in latest_shots:
+        recent_events.append({
+            'type': 'shot',
+            'timestamp': shot.created_at.isoformat(),
+            'player': shot.player.name,
+            'team': shot.team.name,
+            'description': f"{shot.player.name} - {shot.get_shot_type_display()} {shot.get_result_display()}",
+            'points': shot.points_scored,
+        })
+    
+    for foul in latest_fouls:
+        recent_events.append({
+            'type': 'foul',
+            'timestamp': foul.created_at.isoformat(),
+            'player': foul.player.name,
+            'team': foul.team.name,
+            'description': f"{foul.player.name} - {foul.get_foul_type_display()}",
+        })
+    
+    # Sort by timestamp
+    recent_events.sort(key=lambda x: x['timestamp'], reverse=True)
+    
+    return JsonResponse({
+        'game_id': game.id,
+        'status': game.status,
+        'quarter': game.current_quarter,
+        'team1_score': game.team1_score,
+        'team2_score': game.team2_score,
+        'team1_fouls': game.team1_fouls_current_quarter,
+        'team2_fouls': game.team2_fouls_current_quarter,
+        'recent_events': recent_events[:5]
+    })
+
+
+@require_GET
+def api_basketball_overall_player_stats(request):
+    """API endpoint to get simplified player statistics across all basketball games, sorted by total points"""
+    
+    # Get all player stats from basketball games
+    all_stats = PlayerStat.objects.filter(game__sport='BASKETBALL').select_related('player', 'team')
+    
+    # Dictionary to accumulate stats by player
+    player_stats_dict = {}
+    
+    for stat in all_stats:
+        player_id = stat.player.id
+        
+        if player_id not in player_stats_dict:
+            player_stats_dict[player_id] = {
+                'name': stat.player.name,
+                'team': stat.team.name,
+                'total_matches': 0,
+                'total_3pt': 0,
+                'total_2pt': 0,
+                'total_1pt': 0,
+            }
+        
+        player_stats_dict[player_id]['total_matches'] += 1
+    
+    # Get shot statistics to calculate points by type
+    all_shots = BasketballShot.objects.filter(game__sport='BASKETBALL', result='MADE').select_related('player')
+    
+    for shot in all_shots:
+        player_id = shot.player.id
+        if player_id in player_stats_dict:
+            if shot.shot_type == '3PT':
+                player_stats_dict[player_id]['total_3pt'] += 3
+            elif shot.shot_type == '2PT':
+                player_stats_dict[player_id]['total_2pt'] += 2
+            elif shot.shot_type == 'FT':
+                player_stats_dict[player_id]['total_1pt'] += 1
+    
+    # Convert to list
+    player_stats_list = []
+    for stats in player_stats_dict.values():
+        total_points = stats['total_3pt'] + stats['total_2pt'] + stats['total_1pt']
+        player_stats_list.append({
+            'name': stats['name'],
+            'team': stats['team'],
+            'total_matches': stats['total_matches'],
+            'total_3pt': stats['total_3pt'],
+            'total_2pt': stats['total_2pt'],
+            'total_1pt': stats['total_1pt'],
+            'total_points': total_points
+        })
+    
+    # Sort by total points in descending order
+    player_stats_list.sort(key=lambda x: x['total_points'], reverse=True)
+    
+    return JsonResponse({
+        'player_stats': player_stats_list,
+        'total_players': len(player_stats_list)
+    })
+
+
+@require_GET
+def api_basketball_team_standings(request):
+    """API endpoint to get team standings with wins, losses, and NRR for points table"""
+    
+    # Get all basketball games that are finished
+    finished_games = Basketball.objects.filter(status='FINISHED').select_related('team1', 'team2', 'winner')
+    
+    # Get ALL teams, not just ones that have played
+    from .models import Team
+    all_teams = Team.objects.all()
+    
+    # Dictionary to store team statistics
+    team_stats = {}
+    
+    # Initialize stats for ALL teams
+    for team in all_teams:
+        team_stats[team.id] = {
+            'name': team.name,
+            'matches_played': 0,
+            'wins': 0,
+            'losses': 0,
+            'points_scored': 0,
+            'points_conceded': 0,
+            'nrr': 0.0,
+            'points': 0  # Points for standings (1 for win, 0 for loss)
+        }
+    
+    # Calculate stats from finished games
+    for game in finished_games:
+        team1_id = game.team1.id
+        team2_id = game.team2.id
+        
+        # Update matches played
+        team_stats[team1_id]['matches_played'] += 1
+        team_stats[team2_id]['matches_played'] += 1
+        
+        # Update points scored and conceded
+        team_stats[team1_id]['points_scored'] += game.team1_score
+        team_stats[team1_id]['points_conceded'] += game.team2_score
+        team_stats[team2_id]['points_scored'] += game.team2_score
+        team_stats[team2_id]['points_conceded'] += game.team1_score
+        
+        # Determine winner and update wins/losses
+        if game.winner:
+            winner_id = game.winner.id
+            loser_id = team2_id if winner_id == team1_id else team1_id
+            
+            team_stats[winner_id]['wins'] += 1
+            team_stats[winner_id]['points'] += 1  # 1 point for win
+            team_stats[loser_id]['losses'] += 1
+            # Loser gets 0 points (no change needed)
+        else:
+            # It's a tie - both teams get 0 points (no winner/loser)
+            # No points awarded for ties
+            pass
+    
+    # Calculate NRR for each team
+    for team_id in team_stats:
+        stats = team_stats[team_id]
+        if stats['matches_played'] > 0:
+            # NRR = (Points Scored - Points Conceded)
+            stats['nrr'] = stats['points_scored'] - stats['points_conceded']
+    
+    # Convert to list and sort by points, then by NRR
+    standings_list = []
+    for stats in team_stats.values():
+        standings_list.append({
+            'team': stats['name'],
+            'matches_played': stats['matches_played'],
+            'wins': stats['wins'],
+            'losses': stats['losses'],
+            'points_scored': stats['points_scored'],
+            'points_conceded': stats['points_conceded'],
+            'nrr': stats['nrr'],
+            'points': stats['points']
+        })
+    
+    # Sort by points (descending), then by NRR (descending)
+    standings_list.sort(key=lambda x: (x['points'], x['nrr']), reverse=True)
+    
+    return JsonResponse({
+        'team_standings': standings_list,
+        'total_teams': len(standings_list)
+    })
