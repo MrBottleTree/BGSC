@@ -24,12 +24,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-69b07es2c7_3vjvl-pesb#xr1t$*py$54l@x5lgadwx6f%k5+5'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = ["bgsc.in", "api.bgsc.in"]
 
-CSRF_TRUSTED_ORIGINS = ["https://65.0.130.149", "https://bgsc.in"]
-
+CSRF_TRUSTED_ORIGINS = [
+    "https://bgsc.in",
+    "https://api.bgsc.in",
+    "https://65.0.130.149",
+]
 
 # Application definition
 
