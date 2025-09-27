@@ -34,6 +34,13 @@ CSRF_TRUSTED_ORIGINS = [
     "https://65.0.130.149",
 ]
 
+# CORS settings
+CORS_ALLOWED_ORIGINS = [
+    "https://bgsc.in",
+]
+
+CORS_ALLOW_CREDENTIALS = True
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -43,6 +50,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',
     'channels',
     'games'
 ]
@@ -76,6 +84,7 @@ SESSION_CACHE_ALIAS = "default"
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
