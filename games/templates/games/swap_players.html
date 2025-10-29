@@ -1,0 +1,200 @@
+{% extends 'games/base.html' %}
+{% block title %}Swap Players | BGSC Leagues{% endblock %}
+{% block content %}
+<h1>Swap Players Between Teams</h1>
+
+{% if error %}
+  <div class="card" style="background-color: #fee; border-left: 4px solid #f44;">
+    <strong style="color: #d44;">Error:</strong> {{ error }}
+  </div>
+{% endif %}
+
+{% if success %}
+  <div class="card" style="background-color: #efe; border-left: 4px solid #4a4;">
+    <strong style="color: #484;">Success:</strong> {{ success }}
+  </div>
+{% endif %}
+
+<div class="card">
+  <form method="post" id="swapForm">
+    {% csrf_token %}
+    
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 20px;">
+      <!-- Player 1 Selection -->
+      <div>
+        <label><strong>Select First Player:</strong></label>
+        <select name="player1_id" id="player1Select" class="form-control" required onchange="updatePlayerOptions()">
+          <option value="">Choose player...</option>
+          {% for team in teams %}
+            <optgroup label="{{ team.name }}">
+              {% for player in team.players.all %}
+                <option value="{{ player.id }}" data-team-id="{{ team.id }}" data-team-name="{{ team.name }}">
+                  {{ player.name }}{% if team.leader and player.id == team.leader.id %} (Captain){% endif %}
+                </option>
+              {% endfor %}
+            </optgroup>
+          {% endfor %}
+        </select>
+        <div id="player1Info" class="subtle" style="margin-top: 8px;"></div>
+      </div>
+
+      <!-- Player 2 Selection -->
+      <div>
+        <label><strong>Select Second Player:</strong></label>
+        <select name="player2_id" id="player2Select" class="form-control" required onchange="updateSwapPreview()">
+          <option value="">Choose player...</option>
+          {% for team in teams %}
+            <optgroup label="{{ team.name }}">
+              {% for player in team.players.all %}
+                <option value="{{ player.id }}" data-team-id="{{ team.id }}" data-team-name="{{ team.name }}">
+                  {{ player.name }}{% if team.leader and player.id == team.leader.id %} (Captain){% endif %}
+                </option>
+              {% endfor %}
+            </optgroup>
+          {% endfor %}
+        </select>
+        <div id="player2Info" class="subtle" style="margin-top: 8px;"></div>
+      </div>
+    </div>
+
+    <!-- Swap Preview -->
+    <div id="swapPreview" class="card" style=" display: none; margin-bottom: 20px;">
+      <h3 style="margin-top: 0;">Swap Preview:</h3>
+      <div id="swapDetails"></div>
+      <div id="captainWarning" class="subtle" style="margin-top: 12px; color: #e67e22;"></div>
+    </div>
+
+    <div style="display: flex; gap: 12px;">
+      <button class="btn btn-primary" type="submit" id="swapButton" disabled>
+        Swap Players
+      </button>
+      <a class="btn btn-outline" href="{% url 'teams' %}">Back to Teams</a>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <h3>Current Teams</h3>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px;">
+    {% for team in teams %}
+      <div class="card" style="background-color: #f8f9fa;">
+        <h4 style="margin-top: 0;">{{ team.name }}</h4>
+        <div class="stack">
+          {% for player in team.players.all %}
+            <div>
+              {{ player.name }}
+              {% if team.leader and player.id == team.leader.id %}
+                <span class="badge" style="background: #28a745;">Captain</span>
+              {% endif %}
+            </div>
+          {% empty %}
+            <div class="subtle">No players</div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+function updatePlayerOptions() {
+  const player1Select = document.getElementById('player1Select');
+  const player2Select = document.getElementById('player2Select');
+  const player1Info = document.getElementById('player1Info');
+  
+  const selectedOption = player1Select.options[player1Select.selectedIndex];
+  
+  if (selectedOption.value) {
+    const teamName = selectedOption.dataset.teamName;
+    const teamId = selectedOption.dataset.teamId;
+    player1Info.textContent = `Currently on: ${teamName}`;
+    
+    // Disable options from the same team in player2 select
+    for (let option of player2Select.options) {
+      if (option.dataset.teamId === teamId) {
+        option.disabled = true;
+        option.style.color = '#ccc';
+      } else {
+        option.disabled = false;
+        option.style.color = '';
+      }
+    }
+    
+    // If player2 is selected and from same team, clear it
+    const player2Option = player2Select.options[player2Select.selectedIndex];
+    if (player2Option.dataset.teamId === teamId) {
+      player2Select.value = '';
+      updateSwapPreview();
+    }
+  } else {
+    player1Info.textContent = '';
+    // Re-enable all options in player2 select
+    for (let option of player2Select.options) {
+      option.disabled = false;
+      option.style.color = '';
+    }
+  }
+  
+  updateSwapPreview();
+}
+
+function updateSwapPreview() {
+  const player1Select = document.getElementById('player1Select');
+  const player2Select = document.getElementById('player2Select');
+  const swapPreview = document.getElementById('swapPreview');
+  const swapDetails = document.getElementById('swapDetails');
+  const captainWarning = document.getElementById('captainWarning');
+  const swapButton = document.getElementById('swapButton');
+  const player2Info = document.getElementById('player2Info');
+  
+  const player1Option = player1Select.options[player1Select.selectedIndex];
+  const player2Option = player2Select.options[player2Select.selectedIndex];
+  
+  if (player2Option.value) {
+    const teamName = player2Option.dataset.teamName;
+    player2Info.textContent = `Currently on: ${teamName}`;
+  } else {
+    player2Info.textContent = '';
+  }
+  
+  if (player1Option.value && player2Option.value) {
+    const player1Name = player1Option.text;
+    const player2Name = player2Option.text;
+    const team1Name = player1Option.dataset.teamName;
+    const team2Name = player2Option.dataset.teamName;
+    
+    swapDetails.innerHTML = `
+      <div><strong>${player1Name}</strong> will move from <strong>${team1Name}</strong> to <strong>${team2Name}</strong></div>
+      <div><strong>${player2Name}</strong> will move from <strong>${team2Name}</strong> to <strong>${team1Name}</strong></div>
+    `;
+    
+    // Check for captain warnings
+    let warnings = [];
+    if (player1Name.includes('(Captain)')) {
+      warnings.push(`${player1Name.replace(' (Captain)', '')} will lose captaincy of ${team1Name}`);
+    }
+    if (player2Name.includes('(Captain)')) {
+      warnings.push(`${player2Name.replace(' (Captain)', '')} will lose captaincy of ${team2Name}`);
+    }
+    
+    if (warnings.length > 0) {
+      captainWarning.innerHTML = '<strong>Warning:</strong> ' + warnings.join(', ');
+      captainWarning.style.display = 'block';
+    } else {
+      captainWarning.style.display = 'none';
+    }
+    
+    swapPreview.style.display = 'block';
+    swapButton.disabled = false;
+  } else {
+    swapPreview.style.display = 'none';
+    swapButton.disabled = true;
+  }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+  updatePlayerOptions();
+});
+</script>
+{% endblock %}

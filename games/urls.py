@@ -11,6 +11,7 @@ urlpatterns = [
     path("login/", auth_views.LoginView.as_view(template_name="games/login.html"), name="login"),
     path("logout/", views.logout_view, name="logout"),
     path('dashboard/teams/', views.teams, name='teams'),
+    path('dashboard/swap-players/', views.swap_players, name='swap_players'),
     path('dashboard/teams/<int:team_id>/', views.team_detail, name='team_detail'),
     path('dashboard/teams/remove-team/<int:team_id>/', views.remove_team, name='remove_team'),
     path('dashboard/teams/<int:team_id>/remove-player/<int:player_id>/', views.remove_player, name='remove_player'),

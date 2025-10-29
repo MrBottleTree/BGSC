@@ -2,6 +2,7 @@
 <h1>Teams</h1>
 <div class="spaced">
   <a class="btn btn-primary" href="{% url 'add_team' %}">+ Add Team</a>
+  <a class="btn btn-accent" href="{% url 'swap_players' %}">🔄 Swap Players</a>
 </div>
 {% for t in teams %}
 <div class="card">

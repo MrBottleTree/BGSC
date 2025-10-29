@@ -1122,6 +1122,80 @@ def remove_player(request, team_id: int, player_id: int):
 
 
 @login_required(login_url='/login/')
+def swap_players(request):
+    """View to handle player swapping between teams"""
+    teams = Team.objects.all().prefetch_related("players").order_by("name")
+    
+    if request.method == "POST":
+        player1_id = request.POST.get("player1_id")
+        player2_id = request.POST.get("player2_id")
+        
+        if not player1_id or not player2_id:
+            return render(request, "games/swap_players.html", {
+                "teams": teams,
+                "error": "Please select both players to swap."
+            })
+        
+        if player1_id == player2_id:
+            return render(request, "games/swap_players.html", {
+                "teams": teams,
+                "error": "Cannot swap a player with themselves."
+            })
+        
+        try:
+            player1 = get_object_or_404(Player, pk=player1_id)
+            player2 = get_object_or_404(Player, pk=player2_id)
+            
+            # Check if players are from different teams
+            if player1.team.id == player2.team.id:
+                return render(request, "games/swap_players.html", {
+                    "teams": teams,
+                    "error": "Cannot swap players from the same team."
+                })
+            
+            # Store original teams for captain checks
+            team1 = player1.team
+            team2 = player2.team
+            
+            # Handle captaincy - if either player is a captain, remove captaincy first
+            captain_changes = []
+            if team1.leader and team1.leader.id == player1.id:
+                team1.leader = None
+                captain_changes.append(f"{player1.name} was removed as captain of {team1.name}")
+            
+            if team2.leader and team2.leader.id == player2.id:
+                team2.leader = None
+                captain_changes.append(f"{player2.name} was removed as captain of {team2.name}")
+            
+            # Perform the swap
+            player1.team = team2
+            player2.team = team1
+            
+            # Save all changes
+            player1.save()
+            player2.save()
+            team1.save()
+            team2.save()
+            
+            success_message = f"Successfully swapped {player1.name} and {player2.name} between teams."
+            if captain_changes:
+                success_message += " " + " ".join(captain_changes)
+            
+            return render(request, "games/swap_players.html", {
+                "teams": teams,
+                "success": success_message
+            })
+            
+        except Exception as e:
+            return render(request, "games/swap_players.html", {
+                "teams": teams,
+                "error": f"Error occurred during swap: {str(e)}"
+            })
+    
+    return render(request, "games/swap_players.html", {"teams": teams})
+
+
+@login_required(login_url='/login/')
 def basketball_game_stats(request, game_id: int):
     """Detailed basketball game statistics view"""
     game = get_object_or_404(Basketball, pk=game_id)
