@@ -616,7 +616,6 @@ def update_basketball(request, game_id: int):
                 "player_in_name": player_in.name,
                 "player_in_id": player_in.id,
             }
-            _broadcast_game_update(game, kind="substitution", extra=sub_data)
         
         elif action == "set_active_players":
             # Get selected players for each team
@@ -639,7 +638,6 @@ def update_basketball(request, game_id: int):
                     "team1_active_players": [{"id": p.id, "name": p.name} for p in game.get_team1_active_players()],
                     "team2_active_players": [{"id": p.id, "name": p.name} for p in game.get_team2_active_players()],
                 }
-                _broadcast_game_update(game, kind="active_players_set", extra=active_data)
             else:
                 messages.error(request, message)
         
@@ -669,7 +667,6 @@ def update_basketball(request, game_id: int):
                         "result": last_shot.result,
                         "points_reversed": points if last_shot.result == "MADE" else 0,
                     }
-                    _broadcast_game_update(game, kind="undo_shot", extra=undo_data)
                     
                     last_shot.delete()
             except Exception:
@@ -698,7 +695,6 @@ def update_basketball(request, game_id: int):
                         "team1_fouls": game.team1_fouls_current_quarter,
                         "team2_fouls": game.team2_fouls_current_quarter,
                     }
-                    _broadcast_game_update(game, kind="undo_foul", extra=undo_data)
                     
                     # Delete the foul record (this will decrease the individual player's foul count)
                     last_foul.delete()
@@ -736,7 +732,6 @@ def update_basketball(request, game_id: int):
                         "team1_active_players": [{"id": p.id, "name": p.name} for p in game.get_team1_active_players()],
                         "team2_active_players": [{"id": p.id, "name": p.name} for p in game.get_team2_active_players()],
                     }
-                    _broadcast_game_update(game, kind="undo_substitution", extra=undo_data)
                     
                     last_sub.delete()
             except Exception:
@@ -769,7 +764,6 @@ def update_basketball(request, game_id: int):
                         "team1_fouls": game.team1_fouls_current_quarter,
                         "team2_fouls": game.team2_fouls_current_quarter,
                     }
-                    _broadcast_game_update(game, kind="quarter_change", extra=quarter_data)
                 elif game.current_quarter == 4:
                     # Game finished
                     game.status = "FINISHED"
@@ -779,7 +773,6 @@ def update_basketball(request, game_id: int):
                     _determine_basketball_winner(game)
                     
                     game.save()
-                    _broadcast_game_update(game, kind="game_finished")
             except Exception:
                 pass
         
@@ -805,7 +798,6 @@ def update_basketball(request, game_id: int):
                 _determine_basketball_winner(game)
                 
                 game.save()
-                _broadcast_game_update(game, kind="game_finished")
                 
                 # Redirect to dashboard when game is ended
                 return redirect("dashboard")
@@ -861,7 +853,6 @@ def update_cricket(request, game_id: int):
             if "bowler_id" in request.POST:
                 game.current_bowler = Player.objects.filter(pk=bowler_id).first() if bowler_id else None
             game.save()
-            _broadcast_game_update(game, kind="state_update")
         elif action == "runs":
             runs = int(request.POST.get("runs", 1))
             if game.current_batsman:
@@ -882,7 +873,6 @@ def update_cricket(request, game_id: int):
                     runs=runs,
                     batting_side=game.batting_side,
                 )
-                _broadcast_game_update(game)
         elif action == "wicket":
             if game.current_bowler:
                 st = _get_or_create_stat(game, game.current_bowler)
@@ -901,7 +891,6 @@ def update_cricket(request, game_id: int):
                     wicket=True,
                     batting_side=game.batting_side,
                 )
-                _broadcast_game_update(game)
         return redirect("update_cricket", game_id=game.id)
     return render(
         request,
@@ -1027,7 +1016,6 @@ def update_undo(request, game_id: int):
                     game.team2_deaths = max(0, game.team2_deaths - 1)
                 game.save()
         last.delete()
-        _broadcast_game_update(game, kind="undo")
     if game.sport == "FOOTBALL":
         return redirect("update_football", game_id=game.id)
     if game.sport == "BASKETBALL":
@@ -1102,7 +1090,6 @@ def set_game_status(request, game_id: int):
             except Basketball.DoesNotExist:
                 pass
         game.save()
-        _broadcast_game_update(game, kind="status_change")
     return redirect("dashboard")
 
 
@@ -1284,8 +1271,6 @@ def start_basketball_game(request, game_id: int):
         game.team1_fouls_current_quarter = 0
         game.team2_fouls_current_quarter = 0
         game.save()
-        
-        _broadcast_game_update(game, kind="game_started")
     
     return redirect("update_basketball", game_id=game.id)
 
@@ -1304,7 +1289,6 @@ def end_basketball_game(request, game_id: int):
         _determine_basketball_winner(game)
         
         game.save()
-        _broadcast_game_update(game, kind="game_ended")
     
     return redirect("dashboard")
 

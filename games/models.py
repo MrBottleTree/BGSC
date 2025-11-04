@@ -332,3 +332,23 @@ class BasketballTimeout(models.Model):
     def __str__(self):
         team_name = self.team.name if self.team else "Official"
         return f"{team_name} - {self.timeout_type} Q{self.quarter}"
+
+
+class APIAnalytics(models.Model):
+    """Track API endpoint usage for frontend analytics"""
+    endpoint = models.CharField(max_length=255, db_index=True)
+    method = models.CharField(max_length=10, default='GET')
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+    response_time_ms = models.IntegerField(null=True, blank=True)
+    status_code = models.IntegerField(default=200)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['endpoint', 'timestamp']),
+            models.Index(fields=['timestamp']),
+        ]
+        verbose_name_plural = "API Analytics"
+    
+    def __str__(self):
+        return f"{self.method} {self.endpoint} - {self.timestamp}"

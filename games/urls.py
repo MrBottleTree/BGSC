@@ -36,7 +36,9 @@ urlpatterns = [
     path('api/basketball/team-standings/', views.api_basketball_team_standings, name='api_basketball_team_standings'),
 
     path('dashboard/game-status/<int:game_id>/', views.set_game_status, name='set_game_status'),
+    path('dashboard/analytics/', views.api_analytics, name='api_analytics'),
 
     path('healthz/', lambda request: JsonResponse({"message": "OK"}, status=200), name='healthz'),
-    path('local-ip/', views.api_local_ip, name='api_local_ip'),
+        path('local-ip/', views.api_local_ip, name='api_local_ip'),
+
 ]

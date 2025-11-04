@@ -1,0 +1,219 @@
+{% extends 'games/base.html' %}
+{% block title %}API Analytics | BGSC Leagues{% endblock %}
+{% block content %}
+<h1>API Analytics Dashboard</h1>
+
+<!-- Time Range Filter -->
+<div class="card">
+  <div class="spaced">
+    <h3>Time Range</h3>
+    <div style="display: flex; gap: 8px;">
+      {% for option in time_range_options %}
+        <a href="?days={{ option }}" class="btn {% if days == option %}btn-primary{% else %}btn-outline{% endif %}">
+          Last {{ option }} day{% if option > 1 %}s{% endif %}
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- Summary Cards -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 20px;">
+  <div class="card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+    <h3 style="margin: 0; color: white;">Total API Calls</h3>
+    <div style="font-size: 2.5em; font-weight: bold; margin-top: 10px;">{{ total_calls }}</div>
+  </div>
+  
+  <div class="card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
+    <h3 style="margin: 0; color: white;">Active Endpoints</h3>
+    <div style="font-size: 2.5em; font-weight: bold; margin-top: 10px;">{{ total_endpoints }}</div>
+  </div>
+  
+  <div class="card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white;">
+    <h3 style="margin: 0; color: white;">Avg Response Time</h3>
+    <div style="font-size: 2.5em; font-weight: bold; margin-top: 10px;">{{ avg_response_time }}ms</div>
+  </div>
+  
+  {% if most_used %}
+  <div class="card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: white;">
+    <h3 style="margin: 0; color: white;">Most Used</h3>
+    <div style="font-size: 1.2em; font-weight: bold; margin-top: 10px;">{{ most_used.endpoint }}</div>
+    <div style="margin-top: 5px;">{{ most_used.total_calls }} calls</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Endpoint Statistics Table -->
+<div class="card" style="margin-top: 24px;">
+  <h2 class="section-title">Endpoint Usage Statistics</h2>
+  <div style="overflow-x: auto;">
+    <table style="width: 100%; border-collapse: collapse;">
+      <thead>
+        <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+          <th style="padding: 12px; text-align: left;">Endpoint</th>
+          <th style="padding: 12px; text-align: center;">Method</th>
+          <th style="padding: 12px; text-align: center;">Total Calls</th>
+          <th style="padding: 12px; text-align: center;">Success</th>
+          <th style="padding: 12px; text-align: center;">Errors</th>
+          <th style="padding: 12px; text-align: center;">Avg Response (ms)</th>
+          <th style="padding: 12px; text-align: center;">Success Rate</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for stat in endpoint_stats %}
+        <tr style="border-bottom: 1px solid #dee2e6;">
+          <td style="padding: 12px; font-family: monospace; font-size: 0.9em;">{{ stat.endpoint }}</td>
+          <td style="padding: 12px; text-align: center;">
+            <span class="badge" style="background: #6c757d;">{{ stat.method }}</span>
+          </td>
+          <td style="padding: 12px; text-align: center; font-weight: bold;">{{ stat.total_calls }}</td>
+          <td style="padding: 12px; text-align: center; color: #28a745;">{{ stat.success_calls }}</td>
+          <td style="padding: 12px; text-align: center; color: #dc3545;">{{ stat.error_calls }}</td>
+          <td style="padding: 12px; text-align: center;">
+            {% if stat.avg_response_time %}
+              {{ stat.avg_response_time|floatformat:0 }}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td style="padding: 12px; text-align: center;">
+            {% widthratio stat.success_calls stat.total_calls 100 as success_rate %}
+            <span class="{% if success_rate >= 95 %}badge{% endif %}" style="{% if success_rate >= 95 %}background: #28a745;{% elif success_rate >= 80 %}color: #ffc107;{% else %}color: #dc3545;{% endif %}">
+              {{ success_rate }}%
+            </span>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" style="padding: 24px; text-align: center; color: #999;">
+            No data available for the selected time range
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Daily Usage Chart -->
+{% if daily_stats %}
+<div class="card" style="margin-top: 24px;">
+  <h2 class="section-title">Daily API Calls</h2>
+  <div style="height: 300px; position: relative;">
+    <canvas id="dailyChart"></canvas>
+  </div>
+</div>
+{% endif %}
+
+<!-- Hourly Usage Chart -->
+{% if hourly_stats %}
+<div class="card" style="margin-top: 24px;">
+  <h2 class="section-title">Hourly API Calls</h2>
+  <div style="height: 300px; position: relative;">
+    <canvas id="hourlyChart"></canvas>
+  </div>
+</div>
+{% endif %}
+
+<div style="margin-top: 20px;">
+  <a class="btn btn-outline" href="{% url 'dashboard' %}">Back to Dashboard</a>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// Daily Chart
+{% if daily_stats %}
+const dailyCtx = document.getElementById('dailyChart').getContext('2d');
+const dailyChart = new Chart(dailyCtx, {
+    type: 'line',
+    data: {
+        labels: [
+            {% for stat in daily_stats %}
+                '{{ stat.day|date:"M d" }}'{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ],
+        datasets: [{
+            label: 'API Calls',
+            data: [
+                {% for stat in daily_stats %}
+                    {{ stat.calls }}{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            ],
+            borderColor: 'rgb(75, 192, 192)',
+            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            tension: 0.4,
+            fill: true
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: true,
+                position: 'top',
+            },
+            title: {
+                display: false
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    precision: 0
+                }
+            }
+        }
+    }
+});
+{% endif %}
+
+// Hourly Chart
+{% if hourly_stats %}
+const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
+const hourlyChart = new Chart(hourlyCtx, {
+    type: 'bar',
+    data: {
+        labels: [
+            {% for stat in hourly_stats %}
+                '{{ stat.hour|date:"M d, H:i" }}'{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ],
+        datasets: [{
+            label: 'API Calls',
+            data: [
+                {% for stat in hourly_stats %}
+                    {{ stat.calls }}{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            ],
+            backgroundColor: 'rgba(54, 162, 235, 0.6)',
+            borderColor: 'rgb(54, 162, 235)',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: true,
+                position: 'top',
+            },
+            title: {
+                display: false
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    precision: 0
+                }
+            }
+        }
+    }
+});
+{% endif %}
+</script>
+{% endblock %}
